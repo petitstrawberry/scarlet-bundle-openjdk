@@ -275,12 +275,13 @@ class BootstrapTests(unittest.TestCase):
 
     def test_hotspot_configure_contract(self):
         env = {"SCARLET_NATIVE_" + name: "/sdk/" + name.lower() for name in ("AR", "NM", "RANLIB")}
+        env.update(BUILD_CC="/host/clang", BUILD_CXX="/host/clang++")
         boot = self.root / "Java 21"
         with mock.patch.object(build, "run") as run:
             build.configure_hotspot(self.root / "jdk", self.root / "build", boot,
                                     self.root / "ffi", self.root / "clang", self.root / "clang++", env, self.root / "log")
         command = [str(arg) for arg in run.call_args.args[0]]
-        required = [f"--with-boot-jdk={boot}", f"--with-build-jdk={boot}",
+        required = ["BUILD_CC=/host/clang", "BUILD_CXX=/host/clang++", f"--with-boot-jdk={boot}", f"--with-build-jdk={boot}",
                     "--with-freetype=bundled", f"--with-libffi={self.root / 'ffi'}",
                     "--openjdk-target=aarch64-unknown-scarlet", "--with-jvm-variants=zero",
                     "--enable-static-build", "--enable-headless-only",

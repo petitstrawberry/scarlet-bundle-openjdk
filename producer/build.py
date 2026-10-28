@@ -51,7 +51,7 @@ NATIVE_VARS = tuple("SCARLET_NATIVE_" + name for name in
                     ("RUNTIME", "CC", "CXX", "AR", "NM", "RANLIB"))
 # These can affect configure/compiler discovery or flags. Recording only this
 # allowlist avoids leaking unrelated shell variables into build receipts.
-BUILD_ENV_VARS = ("PATH", "CC", "CXX", "AR", "NM", "RANLIB", "CFLAGS", "CXXFLAGS",
+BUILD_ENV_VARS = ("PATH", "CC", "CXX", "BUILD_CC", "BUILD_CXX", "AR", "NM", "RANLIB", "CFLAGS", "CXXFLAGS",
                   "CPPFLAGS", "LDFLAGS", "LIBS", "CPATH", "C_INCLUDE_PATH",
                   "CPLUS_INCLUDE_PATH", "LIBRARY_PATH", "SDKROOT",
                   "MACOSX_DEPLOYMENT_TARGET", "SOURCE_DATE_EPOCH", "MAKEFLAGS")
@@ -445,6 +445,11 @@ def configure_hotspot(source, build, boot_jdk, ffi, cc, cxx, env, logfile, varia
                "--with-native-debug-symbols=none", f"CC={cc}", f"CXX={cxx}",
                f"AR={env['SCARLET_NATIVE_AR']}", f"NM={env['SCARLET_NATIVE_NM']}",
                f"RANLIB={env['SCARLET_NATIVE_RANLIB']}", f"--with-jvm-features={features}"]
+    # OpenJDK ignores compiler environment variables unless passed as configure
+    # arguments. Build tools must use host Clang, not the Scarlet cross drivers.
+    for name in ("BUILD_CC", "BUILD_CXX"):
+        if env.get(name):
+            command.append(f"{name}={env[name]}")
     if major == 21:
         command.append("--enable-static-build")
     run(command, build, logfile, env)

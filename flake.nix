@@ -31,6 +31,8 @@
                 pkgs.unzip pkgs.zip pkgs.file pkgs.which pkgs.gnused pkgs.gnugrep
                 pkgs.gawk pkgs.diffutils pkgs.findutils pkgs.gnutar pkgs.gzip
                 pkgs.qemu pkgs.libffi pkgs.zlib ];
+              BUILD_CC = "${llvm.clang}/bin/clang";
+              BUILD_CXX = "${llvm.clang}/bin/clang++";
               JAVA_HOME = "${jdk.home}";
               SCARLET_NATIVE_RUNTIME = "${scarlet-sdk.packages.${system}.scarlet-native-runtime}";
               SCARLET_NATIVE_CC = "${llvm.clang-unwrapped}/bin/clang";
