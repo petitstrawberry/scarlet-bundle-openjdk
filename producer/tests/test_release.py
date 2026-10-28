@@ -1,4 +1,4 @@
-"""A consumer must receive the checked binary and only its versioned files."""
+"""A consumer must receive java and the selected runtime's files."""
 import json
 from pathlib import Path
 import sys
@@ -25,7 +25,7 @@ class ReleaseTests(unittest.TestCase):
             path = self.home / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(self.sources) if name.endswith('.json') else 'fixture')
-        for path in (self.stage / 'bin/java25', self.home / 'bin/java'):
+        for path in (self.stage / 'bin/java', self.home / 'bin/java'):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'checked-native-executable')
             path.chmod(0o755)
@@ -35,7 +35,7 @@ class ReleaseTests(unittest.TestCase):
         artifact = self.output / name
         release.archive_runtime(self.stage, artifact, 1234)
         metadata = dict(jdk='25', version='v0.1.0', artifact=name,
-                        producer_commit='a' * 40, java_sha256=build.sha256(self.stage / 'bin/java25'),
+                        producer_commit='a' * 40, java_sha256=build.sha256(self.stage / 'bin/java'),
                         sha256=build.sha256(artifact))
         for filename, value in [('sources.json', self.sources), ('build.json', {}), ('release.json', metadata)]:
             (self.output / filename).write_bytes(build.json_bytes(value))
@@ -60,10 +60,10 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, 'checksum|SHA-256'):
             release.verify_release(self.output)
 
-    def test_default_java_and_other_versions_cannot_be_overwritten(self):
-        (self.stage / 'bin/java').write_bytes(b'wrong')
+    def test_version_suffixed_command_is_rejected(self):
+        (self.stage / 'bin/java25').write_bytes(b'wrong')
         self.package()
-        with self.assertRaisesRegex(build.BuildError, 'versioned paths'):
+        with self.assertRaisesRegex(build.BuildError, 'supported paths'):
             release.verify_release(self.output)
 
     def test_missing_notice_prevents_release(self):

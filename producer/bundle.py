@@ -31,8 +31,11 @@ def install(receipt, destination, major):
             raise build.BuildError('Refusing symlink in installation path: ' + str(path))
     if target.exists() and any(p.is_symlink() for p in target.rglob('*')):
         raise build.BuildError('Existing Java home contains symlinks')
+    for other in ('21', '25'):
+        if other != major and (destination / 'usr/lib/jvm' / ('openjdk-' + other)).exists():
+            raise build.BuildError('OpenJDK bundles are mutually exclusive; select one version per image')
     shutil.copytree(home, target, dirs_exist_ok=True)
-    for executable in (destination / 'bin' / ('java' + major), target / 'bin/java'):
+    for executable in (destination / 'bin/java', target / 'bin/java'):
         if executable.is_symlink():
             raise build.BuildError('Refusing symlink executable: ' + str(executable))
         executable.parent.mkdir(parents=True, exist_ok=True)

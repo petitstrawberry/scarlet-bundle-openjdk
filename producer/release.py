@@ -172,7 +172,7 @@ def verify_release(output):
     if sources['producer']['commit'] != metadata['producer_commit']:
         raise build.BuildError('Producer source revision mismatch')
     home = f'usr/lib/jvm/openjdk-{major}'
-    required = {f'bin/java{major}', home + '/bin/java', home + '/lib/modules',
+    required = {'bin/java', home + '/bin/java', home + '/lib/modules',
                 home + '/LICENSE', home + '/ADDITIONAL_LICENSE_INFO', home + '/ASSEMBLY_EXCEPTION',
                 home + '/legal/scarlet-runtime/sources.json', home + '/legal/scarlet-runtime/NOTICE'}
     found = set()
@@ -184,10 +184,10 @@ def verify_release(output):
                 raise build.BuildError('Unsafe or duplicate archive entry: ' + member.name)
             found.add(member.name)
             relative = '/'.join(path.parts[1:])
-            if relative == 'bin/java' or (relative and relative not in ('bin', 'usr', 'usr/lib', 'usr/lib/jvm')
-                    and relative != f'bin/java{major}' and relative != home and not relative.startswith(home + '/')):
-                raise build.BuildError('Runtime writes outside its versioned paths: ' + relative)
-            if relative in (f'bin/java{major}', home + '/bin/java'):
+            if (relative and relative not in ('bin', 'usr', 'usr/lib', 'usr/lib/jvm', 'bin/java')
+                    and relative != home and not relative.startswith(home + '/')):
+                raise build.BuildError('Runtime writes outside its supported paths: ' + relative)
+            if relative in ('bin/java', home + '/bin/java'):
                 data = archive.extractfile(member).read()
                 if hashlib.sha256(data).hexdigest() != metadata['java_sha256'] or member.mode & 0o111 != 0o111:
                     raise build.BuildError('Installed executable mismatch')

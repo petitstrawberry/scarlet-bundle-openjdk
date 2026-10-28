@@ -24,17 +24,22 @@ class BundleTests(unittest.TestCase):
         java.chmod(0o755)
         return dict(artifact=str(java), artifact_sha256=bundle.build.sha256(java), java_home=str(home))
 
-    def test_two_versions_coexist_without_replacing_default_java(self):
-        stage = self.root / 'image'
-        (stage / 'bin').mkdir(parents=True)
-        (stage / 'bin/java').write_text('project-owned default')
+    def test_each_version_provides_java(self):
         for major in ('21', '25'):
+            stage = self.root / ('image-' + major)
             receipt = self.receipt(major)
             home = bundle.install(receipt, stage, major)
             self.assertEqual((home / 'lib/modules').read_bytes(), ('classes-' + major).encode())
-            self.assertEqual((home / 'bin/java').read_bytes(), (stage / ('bin/java' + major)).read_bytes())
-        self.assertEqual((stage / 'bin/java').read_text(), 'project-owned default')
-        self.assertNotEqual((stage / 'bin/java21').read_bytes(), (stage / 'bin/java25').read_bytes())
+            self.assertEqual((home / 'bin/java').read_bytes(), (stage / 'bin/java').read_bytes())
+            self.assertEqual([p.name for p in (stage / 'bin').iterdir()], ['java'])
+
+    def test_versions_are_mutually_exclusive(self):
+        stage = self.root / 'image'
+        bundle.install(self.receipt('21'), stage, '21')
+        with self.assertRaisesRegex(bundle.build.BuildError, 'mutually exclusive'):
+            bundle.install(self.receipt('25'), stage, '25')
+        self.assertEqual((stage / 'bin/java').read_bytes(), b'executable-21')
+        self.assertFalse((stage / 'usr/lib/jvm/openjdk-25').exists())
 
     def test_receipt_version_and_checksum_must_match(self):
         receipt = self.receipt('25')

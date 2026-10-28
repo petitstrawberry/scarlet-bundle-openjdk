@@ -5,11 +5,12 @@ ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base` module.
 
 | Bundle | Default VM | Executable | Java home |
 | --- | --- | --- | --- |
-| `bundles/openjdk-21` | C1 | `/bin/java21` | `/usr/lib/jvm/openjdk-21` |
-| `bundles/openjdk-25` | C1 + C2 tiered compilation | `/bin/java25` | `/usr/lib/jvm/openjdk-25` |
+| `bundles/openjdk-21` | C1 | `/bin/java` | `/usr/lib/jvm/openjdk-21` |
+| `bundles/openjdk-25` | C1 + C2 tiered compilation | `/bin/java` | `/usr/lib/jvm/openjdk-25` |
 
-Both versions can coexist. Each Java home also contains `bin/java`.
-The bundles leave `/bin/java` for the consuming project to select.
+Select exactly one OpenJDK bundle per image; the bundles are mutually exclusive.
+Run it with `java`, for example `java --version`. Each Java home also contains
+`bin/java`.
 
 ## Use a bundle
 
@@ -53,7 +54,7 @@ and archive verification are distinct from execution in a Scarlet guest.
 
 The **Build OpenJDK runtimes** workflow builds both recipes on a native ARM64
 Linux runner with the pinned Nix environment. It audits the native ELF,
-packages the versioned runtime paths, includes license notices and source
+packages `/bin/java` and the selected Java home, includes license notices and source
 references, and verifies the archive and its candidate bundle manifest.
 Build results are available as `openjdk-21` and `openjdk-25` workflow artifacts.
 
