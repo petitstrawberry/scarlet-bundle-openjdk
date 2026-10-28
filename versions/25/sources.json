@@ -1,10 +1,10 @@
 {
   "openjdk": {
     "version": "jdk-25.0.5+8",
-    "commit": "39d6c28044976b5c9b04cf261152391f6336940c",
-    "url": "https://codeload.github.com/petitstrawberry/jdk25u/tar.gz/39d6c28044976b5c9b04cf261152391f6336940c",
-    "sha256": "0d502ef42f38c0bc2c70a589cb4bc155ee7bae4448deb7f15606b4fd1e820ddf",
-    "directory": "jdk25u-39d6c28044976b5c9b04cf261152391f6336940c",
+    "commit": "d6c39082a7c743784f13424938b576a352357d75",
+    "url": "https://codeload.github.com/petitstrawberry/jdk25u/tar.gz/d6c39082a7c743784f13424938b576a352357d75",
+    "sha256": "0e2a4e3fac573194997470647b54ac7de6083d4b4024f5241ca4b0b3714a1970",
+    "directory": "jdk25u-d6c39082a7c743784f13424938b576a352357d75",
     "ported": true,
     "repository": "https://github.com/petitstrawberry/jdk25u",
     "branch": "scarlet-25",

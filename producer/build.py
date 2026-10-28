@@ -432,7 +432,9 @@ def build_libffi(source, work, cc, env, jobs):
 
 def configure_hotspot(source, build, boot_jdk, ffi, cc, cxx, env, logfile, variant="zero", major=21):
     vm = "zero" if variant == "zero" else "server"
-    features = JVM_FEATURES if variant == "zero" else "compiler1,-compiler2," + JVM_FEATURES
+    compilers = {"zero": "", "c1": "compiler1,-compiler2,",
+                 "tiered": "compiler1,compiler2,-jvmci,"}
+    features = compilers[variant] + JVM_FEATURES
     command = ["bash", source / "configure", f"--with-conf-name=scarlet-{variant}",
                "--openjdk-target=aarch64-unknown-scarlet", "--with-toolchain-type=clang",
                f"--with-boot-jdk={boot_jdk}", f"--with-build-jdk={boot_jdk}",
@@ -672,15 +674,19 @@ def main(argv=None):
     parser.add_argument("--boot-jdk", type=Path, help="Matching host JDK 21 or 25 home (required for hotspot/java; also used as build JDK)")
     parser.add_argument("--output", type=Path, help="Driver-owned output (default: producer/.build/jdk-<major>)")
     parser.add_argument("--target", choices=("hotspot", "java", "runtime-probe", "runtime-support-probe"), default="hotspot")
-    parser.add_argument("--jvm-variant", choices=("c1", "zero"), default="c1",
-                        help="C1 AArch64 JIT (default) or portable Zero interpreter")
+    parser.add_argument("--jvm-variant", choices=("c1", "tiered", "zero"),
+                        help="AArch64 C1, C1+C2 tiered, or Zero (default: tiered for 25, C1 for 21)")
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 1))
     parser.add_argument("--configure-only", action="store_true", help="Build libffi and configure hotspot, without compiling hotspot")
     args = parser.parse_args(argv)
+    if args.jvm_variant is None:
+        args.jvm_variant = "tiered" if args.jdk == "25" else "c1"
     if args.output is None:
         args.output = ROOT / "producer/.build" / ("jdk-" + args.jdk)
     if args.jobs < 1:
         parser.error("--jobs must be positive")
+    if args.jvm_variant == "tiered" and args.jdk != "25":
+        parser.error("The tiered compiler profile requires the Java 25 recipe")
     if args.target in ("hotspot", "java") and args.boot_jdk is None:
         parser.error("--boot-jdk is required for hotspot/java (matching JDK major)")
     if args.configure_only and args.target != "hotspot":
