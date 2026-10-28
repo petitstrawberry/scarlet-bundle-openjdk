@@ -150,8 +150,7 @@ tiered compilation: the runner requires C1 level 3 and C2 level 4 records,
 level 4 on-stack replacement (OSR), and an actual level 4 uncommon-trap log.
 That process verifies object state and GC survival after a never-taken branch
 triggers deoptimization, dispatch after loading a second implementation, and
-the result of a loop entered through OSR. These checks establish the exercised
-C2 paths, not Minecraft frame rates or Java TCK compatibility.
+the result of a loop entered through OSR.
 
 This is an initial headless `java.base` port, not a complete or TCK-certified
 JDK. C1 and C2 are enabled in Java 25; virtual threads/continuations are unavailable.
@@ -194,30 +193,3 @@ Host-side build-driver checks (Python 3.11+, included in the producer shell):
 ```sh
 python3 -m unittest discover -s producer/tests -p 'test_*.py'
 ```
-
-## Minecraft target
-
-The client target is **Minecraft Java Edition 26.3**, using its experimental
-Vulkan renderer. Its [official metadata](https://piston-meta.mojang.com/v1/packages/5df1795e16eea19d75b923d66ecca9ce183353c5/26.3.json)
-requires Java 25 and LWJGL 3.4.3. The [26.3 release notes](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3)
-confirm SDL3 window/input support. This supersedes the earlier Java 21 / 1.21.11
-candidate, which would require an OpenGL path.
-
-The official client has SHA-1 `e877b6a07acd633fb3bb475002175cec036e7b87`
-and size 41,483,720 bytes. Downloaded files are local validation inputs, not
-repository content. `net.minecraft.client.main.Main` uses class-file version
-69 (Java 25). No account credentials are needed to retrieve the official files.
-
-The current runtime has not launched Minecraft. Remaining work includes
-broader runtime/NIO compatibility, dynamic JNI loading through `scarlet-ld`,
-additional JDK modules, and native LWJGL/SDL3/shaderc/audio bindings. Analysis of
-the client alone (without third-party libraries) requests `java.desktop`,
-`java.management`, `java.naming`, `java.net.http` and `jdk.jfr` in addition to
-`java.base`; this is a lower bound, not a complete dependency audit.
-
-Minecraft [documents Vulkan 1.2 plus dynamic rendering and push descriptors](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2).
-Scarlet's pinned SGFX ICD manifest currently advertises 1.1.0. Its existing
-loader/offscreen drawing tests do not establish Minecraft feature compatibility;
-the ICD needs a feature audit and implementation work before a client launch
-can succeed. Graphics initialization must report missing features instead of
-advertising support that the driver cannot execute.
