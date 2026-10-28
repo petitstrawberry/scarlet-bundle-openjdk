@@ -1,5 +1,9 @@
 # Validation record — 2026-10-28
 
+The results below used the earlier `java21`/`java25` installation layout.
+Current bundles provide `/bin/java` and are mutually exclusive; select one
+OpenJDK version per image.
+
 These results come from the independent producer's own pinned Nix environments.
 The kernel and native init were supplied as explicit artifacts. No Scarlet
 checkout was used to build either JDK or to compose the bundle image.
