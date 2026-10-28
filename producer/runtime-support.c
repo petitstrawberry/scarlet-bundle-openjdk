@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0 */
 #include <stddef.h>
 #include <pthread.h>
 #include <stdlib.h>

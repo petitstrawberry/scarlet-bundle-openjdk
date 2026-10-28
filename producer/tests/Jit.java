@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0 */
 public final class Jit {
     static final class Box { int value = 17; }
     static long work(int n) {

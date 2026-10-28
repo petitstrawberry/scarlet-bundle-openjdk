@@ -1,0 +1,99 @@
+name: Build OpenJDK runtimes
+on:
+  push:
+    paths:
+      - 'producer/**'
+      - '!producer/tests/**'
+      - 'versions/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - 'NOTICE'
+      - 'ATTRIBUTION.md'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New artifact version (empty uses the workflow run number)
+        default: ''
+      publish:
+        description: Publish and update bundle pins when running on main
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ['21', '25']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+      - uses: cachix/cachix-action@v17
+        with:
+          name: scarlet-rust-toolchain
+      - name: Check producer
+        run: python3 -m unittest discover -s producer/tests -p 'test_*.py'
+      - name: Record pinned source inputs
+        run: |
+          mkdir -p producer/artifacts
+          nix flake archive --json > producer/artifacts/flake-inputs.json
+      - name: Build native runtime
+        env:
+          JDK: ${{ matrix.jdk }}
+        run: |
+          nix develop ".#jdk${JDK}" --command bash -c \
+            'python3 producer/build.py --jdk "$JDK" --target java --boot-jdk "$JAVA_HOME" --jobs 4'
+      - name: Package and verify release archive
+        env:
+          JDK: ${{ matrix.jdk }}
+          VERSION: ${{ inputs.version || format('v0.1.{0}', github.run_number) }}
+        run: |
+          nix develop ".#jdk${JDK}" --command python3 producer/release.py \
+            --jdk "$JDK" --version "$VERSION" \
+            --build-receipt "producer/.build/jdk-${JDK}/java.json" \
+            --flake-inputs producer/artifacts/flake-inputs.json \
+            --output "producer/artifacts/release/openjdk-${JDK}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openjdk-${{ matrix.jdk }}
+          path: producer/artifacts/release/openjdk-${{ matrix.jdk }}/
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs-${{ matrix.jdk }}
+          path: producer/.build/jdk-${{ matrix.jdk }}/builds/**/logs/
+  release:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: openjdk-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: openjdk-*
+          path: producer/artifacts/release
+      - name: Publish verified runtime archives and pin bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_REVISION: ${{ github.sha }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python3 producer/publish.py --artifacts producer/artifacts/release --revision "$BUILD_REVISION"

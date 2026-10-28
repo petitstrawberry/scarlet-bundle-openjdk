@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0 */
 /* A small static JNI launcher for the initial Scarlet OpenJDK port. */
 #include <jni.h>
 #include <pthread.h>
