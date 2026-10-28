@@ -53,6 +53,7 @@ def main():
     receipt = json.loads(a.build_receipt.read_text())
     a.jar = Path(receipt['java_home']).name == 'openjdk-25'
     a.jit = receipt.get('inputs', {}).get('jvm_variant', 'zero') != 'zero'
+    a.tiered = receipt.get('inputs', {}).get('jvm_variant') == 'tiered'
     java, java_home = Path(receipt['artifact']), Path(receipt['java_home'])
     if not java.is_file() or not (java_home/'lib/modules').is_file():
         p.error('Receipt must point to a compiled native Java runtime')
@@ -77,9 +78,10 @@ def build_and_run(a, o, java, java_home):
     run(['rustc','--edition=2024','--target=aarch64-unknown-scarlet','-C','panic=abort',
          '-C','target-feature=+crt-static','-C','relocation-model=static',
          '-C','link-arg=--no-dynamic-linker','-O',HERE/'supervisor.rs','-o',o/'supervisor']
-        + (['--cfg','jit'] if a.jit else []) + (['--cfg','jar'] if a.jar else []),o/'supervisor-build.log',env)
+        + (['--cfg','jit'] if a.jit else []) + (['--cfg','jar'] if a.jar else [])
+        + (['--cfg','tiered'] if a.tiered else []),o/'supervisor-build.log',env)
     run([a.boot_jdk.resolve()/'bin/javac','-encoding','UTF-8','-d',o/'classes',
-         HERE/'Hello.java',HERE/'Jit.java',HERE/'JitStress.java'],o/'javac.log',env)
+         HERE/'Hello.java',HERE/'Jit.java',HERE/'JitStress.java',HERE/'Tiered.java'],o/'javac.log',env)
     if a.jar:
         run([a.boot_jdk.resolve()/'bin/javac','-encoding','UTF-8','-d',o/'jar-classes',
              HERE/'JarMain.java',HERE/'fixture/Dependency.java'],o/'jar-javac.log',env)
@@ -87,7 +89,7 @@ def build_and_run(a, o, java, java_home):
     run([sys.executable,HERE/'run-java.py','--kernel',a.kernel.resolve(),'--init',a.init.resolve(),'--java',java,
          '--java-home',java_home,'--supervisor',o/'supervisor','--classes',o/'classes',
          '--output',o/'java-qa','--accel',a.accel,'--qemu',a.qemu,'--timeout',a.timeout]
-        + (['--jit'] if a.jit else []),o/'run.log',env)
+        + (['--jit'] if a.jit else []) + (['--tiered'] if a.tiered else []),o/'run.log',env)
     print('Native OpenJDK guest PASS: '+str(o/'java-qa/validation.json'))
 
 if __name__ == '__main__':

@@ -16,12 +16,27 @@ spec.loader.exec_module(runtime_test)
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-def compiled_method(log, owner, method):
+def compiled_method(log, owner, method, level=None, osr=False):
     # Multiple Java threads can interleave PrintCompilation and exclusion
     # messages. Require the timestamp/id, blocking flag and byte count, but
     # allow a real compilation record to follow another writer's line prefix.
-    return bool(re.search(r'(?<!\d)\d+[ \t]+\d+[ \t]+[^\r\n]*\bb[ \t]+'
-                          + re.escape(owner+'::'+method) + r' \(\d+ bytes\)', log))
+    pattern = (r'(?<!\d)\d+[ \t]+\d+[ \t]+(?P<flags>[%s!bn \t]*?)'
+               r'(?:(?P<level>[1-4])[ \t]+)?' + re.escape(owner+'::'+method)
+               + r'(?: @ \d+)? \(\d+ bytes\)(?P<status>[^\r\n]*)')
+    return any('b' in match['flags']
+               and (level is None or match['level'] == str(level))
+               and (not osr or '%' in match['flags'])
+               and not re.search(r'made (?:not entrant|zombie)', match['status'])
+               for match in re.finditer(pattern, log))
+
+def tiered_evidence(log):
+    # Level 4 is C2. Require an actual uncommon trap in the allocation test;
+    # a successful Java marker alone cannot prove that deoptimization occurred.
+    return (all(compiled_method(log, 'Tiered', name, level=level)
+                for name in ('dispatch', 'materialize') for level in (3, 4))
+            and compiled_method(log, 'Tiered', 'osr', level=4, osr=True)
+            and bool(re.search(r'\[deoptimization\][^\r\n]*level=4[^\r\n]*'
+                               r'Tiered\.materialize\([^\r\n]*unstable_if', log)))
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -31,7 +46,8 @@ def main():
     p.add_argument('--qemu', default='qemu-system-aarch64')
     p.add_argument('--cpus', type=int, default=4)
     p.add_argument('--timeout', type=int, default=180)
-    p.add_argument('--jit', action='store_true', help='Require successful C1 compilation and exception recovery')
+    p.add_argument('--jit', action='store_true', help='Require JIT compilation and exception recovery')
+    p.add_argument('--tiered', action='store_true', help='Require C1 to C2 promotion, OSR and deoptimization')
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=True)
     if not re.fullmatch(r'openjdk-(21|25)', a.java_home.name):
@@ -81,20 +97,26 @@ def main():
             and 'no main manifest attribute, in /app/no-main.jar' in content
             and 'OPENJDK_GUEST invalid JAR rejected exit=1' in content)
     if a.jit:
-        stress = content.partition('OPENJDK_GUEST JIT stress start')[2]
+        stress = content.partition('OPENJDK_GUEST JIT stress start')[2].partition('OPENJDK_GUEST tiered start')[0]
         passed = (passed and 'OPENJDK_JIT PASS arithmetic=ok null=ok stack=ok' in content
             and 'OPENJDK_GUEST JIT child exit=0' in content
             and 'OPENJDK_JIT_STRESS PASS threads=4 gc=8 null=32 stack=4 roots=ok' in content
             and 'OPENJDK_GUEST JIT stress child exit=0' in content
             and len(re.findall(r'Pause Full \(System.gc\(\)\)', stress)) == 8
-            and all(compiled_method(stress, 'JitStress', name)
+            and all(compiled_method(stress, 'JitStress', name, level=4 if a.tiered else None)
                     for name in ('round', 'field', 'recurse'))
-            and all(compiled_method(content, 'Jit', name)
+            and all(compiled_method(content, 'Jit', name, level=4 if a.tiered else None)
                     for name in ('work', 'load', 'recurse')))
+    if a.tiered:
+        tiered = content.partition('OPENJDK_GUEST tiered start')[2]
+        passed = (passed and a.jit and tiered_evidence(tiered)
+            and 'OPENJDK_TIERED PASS dispatch=ok materialize=ok gc=ok osr=ok' in tiered
+            and 'OPENJDK_GUEST tiered child exit=0' in tiered)
     receipt = dict(result='PASS' if passed else 'FAIL', scope='Native OpenJDK Java execution',
         command=command, timed_out=timed_out, qemu_exit=status, kernel_sha256=sha(a.kernel),
         input_sha256=inputs, initramfs_sha256=sha(initrd), log_sha256=sha(log))
     receipt['jit_required'] = a.jit
+    receipt['tiered_required'] = a.tiered
     receipt['jar_required'] = a.java_home.name == 'openjdk-25'
     (a.output/'validation.json').write_text(json.dumps(receipt, indent=2)+'\n')
     print(content[-6000:])

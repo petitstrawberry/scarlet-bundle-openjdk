@@ -1,6 +1,6 @@
 # scarlet-bundle-openjdk
 
-This builds OpenJDK 25's actual HotSpot VM with an **AArch64 C1 JIT** and a `java.base` runtime for
+This builds OpenJDK 25's actual HotSpot VM with **AArch64 C1 and C2 tiered compilation** and a `java.base` runtime for
 native Scarlet AArch64. The executable uses the Scarlet SDK and native syscall
 ABI (ELF OSABI `0x53`). It does not require a Linux userspace or Linux ABI zone.
 
@@ -65,7 +65,10 @@ Java 21 uses the corresponding `21` paths. For an image containing both versions
 bundle changes `/bin/java`. Select a Java executable in the application or
 project that needs it. `JAVA_HOME` may override its compiled-in Java home.
 
-C1 is the default; `--jvm-variant zero` builds the Zero interpreter. The build
+Java 25 defaults to `--jvm-variant tiered`: C1 profiles code and C2 optimizes hot
+methods. Java 21 defaults to C1. `--jvm-variant c1` selects C1 alone, and
+`--jvm-variant zero` builds the Zero interpreter. The tiered recipe currently
+requires Java 25; JVMCI is disabled. The build
 receipt is `producer/.build/jdk-25/java.json` and identifies `artifact`,
 `java_home` and `image_root`. The raw validation image keeps its test launcher
 at `bin/java`; `bundle.py` installs the versioned executable names above.
@@ -127,21 +130,31 @@ missing-file exception translation. An invalid JAR must exit with code 1 and
 the expected missing-main-manifest diagnostic. JAR fixture classes are kept off
 the loose class path, and application arguments include UTF-8 and a leading dash.
 
-For C1, a second process uses `-Xcomp`, disables inlining of the tested methods,
+For JIT builds, a second process uses `-Xcomp`, disables inlining of the tested methods,
 and requires compilation log entries for arithmetic, field load and recursive
 methods. It checks their results, catches an implicit NullPointerException and
 a stack-guard StackOverflowError, then executes compiled code again. The native
 fault probe checks GPR/SIMD/NZCV preservation, invalid return contexts, and writes
 to PROT_NONE/read-only pages.
 
-A separate C1 stress process holds live objects and arrays in compiled frames
+A separate JIT stress process holds live objects and arrays in compiled frames
 on four platform threads while a controller requests eight full collections.
 Each worker recovers from eight null faults and one stack overflow. The runner
 requires compilation entries, eight GC log entries from that process, intact
 references after collection, and successful termination of all four workers.
 
+For the Java 25 tiered profile, both exception/GC processes select
+`-XX:CompilationMode=high-only` and require level 4 compilation records for
+every tested method, including trivial getters. A separate process uses normal
+tiered compilation: the runner requires C1 level 3 and C2 level 4 records,
+level 4 on-stack replacement (OSR), and an actual level 4 uncommon-trap log.
+That process verifies object state and GC survival after a never-taken branch
+triggers deoptimization, dispatch after loading a second implementation, and
+the result of a loop entered through OSR. These checks establish the exercised
+C2 paths, not Minecraft frame rates or Java TCK compatibility.
+
 This is an initial headless `java.base` port, not a complete or TCK-certified
-JDK. C1 is implemented; C2 and virtual threads/continuations are unavailable.
+JDK. C1 and C2 are enabled in Java 25; virtual threads/continuations are unavailable.
 Reserved-stack annotations are also unavailable (`StackReservedPages=0`). AWT, dynamic
 JNI libraries, JVMTI/agents, JFR, process creation and the launcher's `-m`
 mode are unavailable. The initial static `libnio` backend implements read-only

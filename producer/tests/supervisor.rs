@@ -62,7 +62,15 @@ fn main() {
     }
     #[cfg(jit)]
     {
+        // Force C2 even for trivial getters in the exception/GC tests. The
+        // separate Tiered process below exercises normal C1-to-C2 promotion.
+        let compiler_options: &[&str] = if cfg!(tiered) {
+            &["-XX:CompilationMode=high-only"]
+        } else {
+            &[]
+        };
         let result = std::process::Command::new("/bin/java")
+            .args(compiler_options)
             .args([
                 "-XX:ErrorFile=/tmp/openjdk-error.log",
                 "-Xcomp",
@@ -84,6 +92,7 @@ fn main() {
         }
         println!("OPENJDK_GUEST JIT stress start");
         let result = std::process::Command::new("/bin/java")
+            .args(compiler_options)
             .args([
                 "-XX:ErrorFile=/tmp/openjdk-error.log",
                 "-Xcomp",
@@ -101,6 +110,33 @@ fn main() {
             Ok(status) if status.success() => println!("OPENJDK_GUEST JIT stress child exit=0"),
             other => {
                 println!("OPENJDK_GUEST FAIL JIT stress {other:?}");
+                report_crash();
+            }
+        }
+    }
+    #[cfg(tiered)]
+    {
+        println!("OPENJDK_GUEST tiered start");
+        let result = std::process::Command::new("/bin/java")
+            .args([
+                "-XX:ErrorFile=/tmp/openjdk-error.log",
+                "-XX:-BackgroundCompilation",
+                "-XX:+PrintCompilation",
+                "-XX:CompileThresholdScaling=0.1",
+                "-Xlog:deoptimization=debug,gc",
+                "-XX:CompileCommand=compileonly,Tiered::dispatch",
+                "-XX:CompileCommand=compileonly,Tiered::materialize",
+                "-XX:CompileCommand=compileonly,Tiered::osr",
+                "-XX:CompileCommand=dontinline,Tiered::escape",
+                "-cp",
+                "/app",
+                "Tiered",
+            ])
+            .status();
+        match result {
+            Ok(status) if status.success() => println!("OPENJDK_GUEST tiered child exit=0"),
+            other => {
+                println!("OPENJDK_GUEST FAIL tiered {other:?}");
                 report_crash();
             }
         }

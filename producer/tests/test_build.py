@@ -310,6 +310,27 @@ class BootstrapTests(unittest.TestCase):
         self.assertNotIn("--enable-static-build", command)
         self.assertIn("--with-jvm-variants=server", command)
 
+    def test_tiered_profile_keeps_both_compilers_without_jvmci(self):
+        env = {"SCARLET_NATIVE_" + name: "/sdk/" + name.lower() for name in ("AR", "NM", "RANLIB")}
+        with mock.patch.object(build, "run") as run:
+            build.configure_hotspot(self.root / "jdk", self.root / "build", self.root / "jdk25",
+                                    self.root / "ffi", self.root / "clang", self.root / "clang++",
+                                    env, self.root / "log", "tiered", 25)
+        command = [str(arg) for arg in run.call_args.args[0]]
+        self.assertIn("--with-jvm-features=compiler1,compiler2,-jvmci," + build.JVM_FEATURES, command)
+        self.assertNotIn("--enable-static-build", command)
+
+    def test_version_defaults_and_explicit_compiler_override(self):
+        for args, expected in (([], "tiered"), (["--jdk", "21"], "c1"),
+                               (["--jvm-variant", "c1"], "c1"),
+                               (["--jvm-variant", "zero"], "zero")):
+            with mock.patch.object(build, "build") as run:
+                self.assertEqual(build.main(["--boot-jdk", "/jdk", *args]), 0)
+                self.assertEqual(run.call_args.args[0].jvm_variant, expected)
+        with mock.patch.object(build, "build") as run, self.assertRaises(SystemExit):
+            build.main(["--jdk", "21", "--jvm-variant", "tiered", "--boot-jdk", "/jdk"])
+        run.assert_not_called()
+
     def test_image_version_comes_from_upstream_release_numbers(self):
         config = self.root / "make/conf/version-numbers.conf"
         config.parent.mkdir(parents=True)
