@@ -1,0 +1,23 @@
+{
+  "openjdk": {
+    "version": "jdk-25.0.5+8",
+    "commit": "39d6c28044976b5c9b04cf261152391f6336940c",
+    "url": "https://codeload.github.com/petitstrawberry/jdk25u/tar.gz/39d6c28044976b5c9b04cf261152391f6336940c",
+    "sha256": "0d502ef42f38c0bc2c70a589cb4bc155ee7bae4448deb7f15606b4fd1e820ddf",
+    "directory": "jdk25u-39d6c28044976b5c9b04cf261152391f6336940c",
+    "ported": true,
+    "repository": "https://github.com/petitstrawberry/jdk25u",
+    "branch": "scarlet-25",
+    "upstream": {
+      "repository": "https://github.com/openjdk/jdk25u",
+      "tag": "jdk-25.0.5+8",
+      "commit": "fda231468e56663992785ec199a6efb8eca3cc7a"
+    }
+  },
+  "libffi": {
+    "version": "3.4.8",
+    "url": "https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz",
+    "sha256": "bc9842a18898bfacb0ed1252c4febcc7e78fa139fd27fdc7a3e30d9d9356119b",
+    "directory": "libffi-3.4.8"
+  }
+}

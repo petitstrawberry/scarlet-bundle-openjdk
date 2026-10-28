@@ -1,0 +1,8 @@
+producer/.build/
+producer/artifacts/
+producer/cache/
+__pycache__/
+*.pyc
+result
+result-*
+.scarlet/

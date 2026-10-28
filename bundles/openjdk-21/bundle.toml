@@ -1,0 +1,6 @@
+# Legacy Java 21 baseline; JAR/NIO compatibility is not established for this pin.
+[[layers]]
+kind = "script"
+source = "build.sh"
+to = "/"
+architectures = ["aarch64"]

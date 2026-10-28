@@ -1,0 +1,6 @@
+# Source build, owned by this bundle. Select explicitly in a consuming project.
+[[layers]]
+kind = "script"
+source = "build.sh"
+to = "/"
+architectures = ["aarch64"]
