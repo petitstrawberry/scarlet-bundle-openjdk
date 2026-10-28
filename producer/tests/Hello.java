@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0 */
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.concurrent.atomic.AtomicInteger;

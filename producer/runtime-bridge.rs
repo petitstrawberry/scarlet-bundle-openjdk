@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
 use std::ffi::{c_char, CString};
 
 /// Expose an immutable process-lifetime snapshot to OpenJDK's POSIX consumers.

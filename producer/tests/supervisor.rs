@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
 fn main() {
     let version = std::process::Command::new("/bin/java")
         .args(["-XX:ErrorFile=/tmp/openjdk-error.log", "-version"])

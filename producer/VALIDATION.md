@@ -35,8 +35,7 @@ A separate normal-tiered process produced level 3 then level 4 compilations for
 Its log recorded a level 4 `unstable_if` uncommon trap in `materialize`;
 the object state and its survival across a subsequent full GC were checked.
 Loading a second interface implementation also produced level 4 `class_check`
-deoptimizations, recompilation and correct dispatch results. No Minecraft
-performance measurements have been made.
+deoptimizations, recompilation and correct dispatch results.
 
 For the earlier C1 baseline, the actual `cargo scarlet image` command consumed `bundles/openjdk-25` as an
 external local bundle, invoked its source build, and produced a newc image.
@@ -68,6 +67,5 @@ in [Scarlet PR #612](https://github.com/petitstrawberry/Scarlet/pull/612).
 
 Local receipts, logs and installable runtime trees are preserved under the
 ignored `producer/artifacts/` directory, with the C2 results in `c2-tiered/`.
-These checks do not establish Java TCK
-compatibility, dynamic JNI support, a complete NIO implementation or Minecraft
-execution.
+These checks do not establish Java TCK compatibility, dynamic JNI support or
+a complete NIO implementation.

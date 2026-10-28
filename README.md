@@ -1,48 +1,19 @@
 # scarlet-bundle-openjdk
 
-This builds OpenJDK 25's actual HotSpot VM with **AArch64 C1 and C2 tiered compilation** and a `java.base` runtime for
-native Scarlet AArch64. The executable uses the Scarlet SDK and native syscall
-ABI (ELF OSABI `0x53`). It does not require a Linux userspace or Linux ABI zone.
+OpenJDK runtime bundles for native Scarlet AArch64. They use Scarlet's native
+ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base` module.
 
-The port is maintained in [petitstrawberry/jdk25u, branch scarlet-25](https://github.com/petitstrawberry/jdk25u/tree/scarlet-25),
-forked from `openjdk/jdk25u` at `jdk-25.0.5+8`. Each version’s `sources.json` pins the port
-commit and archive SHA-256, plus libffi 3.4.8. Change the OS port in that fork,
-push a commit, then update the commit, URL, directory and checksum here.
-There is no second local copy of the port or patch series to synchronize.
-The previous Java 21 port remains in [jdk21u/scarlet-21](https://github.com/petitstrawberry/jdk21u/tree/scarlet-21).
-The driver still accepts its pinned 21 manifest with a host JDK 21. JDK 25 uses
-the upstream `hotspot-static-libs` target instead of the removed configure-time
-static-build switch; packaging derives the runtime version from upstream sources.
+| Bundle | Default VM | Executable | Java home |
+| --- | --- | --- | --- |
+| `bundles/openjdk-21` | C1 | `/bin/java21` | `/usr/lib/jvm/openjdk-21` |
+| `bundles/openjdk-25` | C1 + C2 tiered compilation | `/bin/java25` | `/usr/lib/jvm/openjdk-25` |
 
-## Repository layout
+Both versions can coexist. Each Java home also contains `bin/java`.
+The bundles leave `/bin/java` for the consuming project to select.
 
-- `versions/21/sources.json`, `versions/25/sources.json`: independent upstream
-  fork commits and archive checksums.
-- `producer/`: shared build, launcher, native support, packaging and tests.
-- `bundles/openjdk-21/`, `bundles/openjdk-25/`: opt-in source-build layers.
-- `producer/.build/jdk-<major>/`: ignored, version-specific build state.
-- `flake.nix` / `flake.lock`: this producer's SDK, compiler and host JDK environment.
+## Use a bundle
 
-The producer has no dependency on a Scarlet kernel checkout or its directory
-layout. OS port sources remain in the `jdk21u` and `jdk25u` forks. Scarlet owns
-its generic native ABI. Guest tests consume explicitly supplied kernel and init
-artifacts; they do not build or edit the kernel repository.
-
-## Build and install
-
-Use the matching shell and recipe from this repository:
-
-```sh
-nix develop .#jdk25
-python3 producer/build.py --jdk 25 --target java --boot-jdk "$JAVA_HOME"
-python3 producer/bundle.py --jdk 25 --boot-jdk "$JAVA_HOME" --destination /path/to/image-stage
-```
-
-For Java 21, use `.#jdk21` and `--jdk 21`. The two recipes have separate source
-pins and build outputs. Java 21 retains the earlier native C1/Zero baseline;
-JAR/NIO compatibility is established only for the Java 25 recipe.
-
-A consuming Scarlet project selects a bundle explicitly:
+Add an explicit layer to the consuming project's image configuration:
 
 ```toml
 [[images.rootfs.layers]]
@@ -51,36 +22,86 @@ source = { git = "https://github.com/petitstrawberry/scarlet-bundle-openjdk", re
 subdir = "bundles/openjdk-25"
 ```
 
-For local development, a bundle layer can instead use an explicit `path` to
-`bundles/openjdk-25/bundle.toml`. Run image composition in the matching producer
-shell, or provide `OPENJDK_BOOT_JDK_25` (or `_21`) and the documented native SDK
-environment. Every source-build layer owns its build invocation; the consuming
-project does not need a root-level preparation script. No bundle is injected
-into Scarlet's default images.
+Select `bundles/openjdk-21` for Java 21. Each bundle references a CI-built
+release archive by fixed URL and SHA-256. Image composition downloads and
+extracts it; consumers do not need a host JDK or the OpenJDK build toolchain.
+Use a repository revision containing the desired release pin.
 
-The installation contains `/bin/java25` and
-`/usr/lib/jvm/openjdk-25/bin/java`, with modules and notices under that Java home.
-Java 21 uses the corresponding `21` paths. For an image containing both versions, set `OPENJDK_BOOT_JDK_21` and
-`OPENJDK_BOOT_JDK_25` to their respective host JDK homes. Both versions may coexist; neither
-bundle changes `/bin/java`. Select a Java executable in the application or
-project that needs it. `JAVA_HOME` may override its compiled-in Java home.
+The launcher accepts VM options, `-cp`/`-classpath`/`--class-path`,
+`-version`/`--version` and standard `static void main(String[])` entry points.
+Java 25 also supports `-jar`, including manifest `Class-Path` dependencies.
+`JAVA_HOME` can override the compiled-in Java home. The default heap is
+16 MiB initial / 64 MiB maximum; the default class path is `.`.
 
-Java 25 defaults to `--jvm-variant tiered`: C1 profiles code and C2 optimizes hot
-methods. Java 21 defaults to C1. `--jvm-variant c1` selects C1 alone, and
-`--jvm-variant zero` builds the Zero interpreter. The tiered recipe currently
-requires Java 25; JVMCI is disabled. The build
-receipt is `producer/.build/jdk-25/java.json` and identifies `artifact`,
-`java_home` and `image_root`. The raw validation image keeps its test launcher
-at `bin/java`; `bundle.py` installs the versioned executable names above.
+## Supported scope
 
-Compile application classes with a matching host JDK. The launcher supports
-standard `static void main(String[])` entry points, VM options, `-cp`/
-`-classpath`/`--class-path`, and `-version`/`--version`. Java 25 also supports
-`-jar` with OpenJDK's manifest parser and manifest `Class-Path` dependencies.
-`-jar` overrides earlier class path options. Default heap: 16 MiB initial,
-64 MiB maximum; default class path: `.`.
+Java 25 includes C1 and C2 tiered compilation, Serial GC, platform threads,
+reflection, method handles, JAR/ZIP reading, direct buffers, and initial NIO
+file metadata/path operations. Java 21 retains the earlier C1 runtime;
+JAR/NIO compatibility has only been established for the Java 25 recipe.
 
-## Validate in a guest
+This is a headless `java.base` port. Dynamic JNI libraries, networking, NIO
+channels/selectors, directory enumeration/mutation, AWT, JVMTI, JFR, virtual
+threads/continuations, process creation and module-mode launch remain
+unavailable or unported. It is not a complete or TCK-certified JDK.
+
+See [the validation record](producer/VALIDATION.md) for tested behavior,
+source and executable checksums, and the limits of those checks. CI compilation
+and archive verification are distinct from execution in a Scarlet guest.
+
+## CI and releases
+
+The **Build OpenJDK runtimes** workflow builds both recipes on a native ARM64
+Linux runner with the pinned Nix environment. It audits the native ELF,
+packages the versioned runtime paths, includes license notices and source
+references, and verifies the archive and its candidate bundle manifest.
+Build results are available as `openjdk-21` and `openjdk-25` workflow artifacts.
+
+Producer changes on `main` publish a new experimental GitHub Release and
+update both bundle pins after the uploaded assets have been downloaded and
+checksum-verified. Existing releases are never overwritten. Documentation,
+bundle-pin and test-only changes do not start another runtime build.
+
+A manual build can select a fresh version:
+
+```sh
+gh workflow run build.yml -f version=v0.1.100 -f publish=false
+```
+
+`publish=false` produces workflow artifacts only. Publication is restricted to
+`main` in CI. A release contains runtime archives, SHA-256 inventories, build
+receipts and source indexes. Source indexes point to the existing repositories
+at fixed revisions; the producer's source is also available from the release
+tag. No separate source repository or duplicate source archive is created.
+
+## Build from source
+
+Maintainers can build either recipe independently of a Scarlet kernel checkout:
+
+```sh
+nix develop .#jdk25
+python3 producer/build.py --jdk 25 --target java --boot-jdk "$JAVA_HOME"
+```
+
+Use `.#jdk21` and `--jdk 21` for Java 21. Java 25 defaults to `tiered`;
+`--jvm-variant c1` and `--jvm-variant zero` select the other configurations.
+The tiered profile requires Java 25 and excludes JVMCI.
+
+The receipt at `producer/.build/jdk-25/java.json` identifies the executable and
+Java home. Source archives, producer helpers, toolchain and boot JDK inputs
+are recorded in the build identity. Edited prepared sources are rejected.
+Use `--output` for a separate build directory. To install a local build into an
+explicit image stage, use `producer/bundle.py --jdk 25 --destination /path/to/stage`.
+
+OS port changes belong in [jdk25u/scarlet-25](https://github.com/petitstrawberry/jdk25u/tree/scarlet-25)
+or [jdk21u/scarlet-21](https://github.com/petitstrawberry/jdk21u/tree/scarlet-21).
+Update the fork commit, archive URL and SHA-256 in `versions/<major>/sources.json`
+after publishing the port change.
+
+## Validate in Scarlet
+
+Supply a Scarlet AArch64 Linux-boot Image and native init with the native memory
+and synchronous-fault ABI used by HotSpot:
 
 ```sh
 python3 producer/tests/validate.py \
@@ -90,134 +111,21 @@ python3 producer/tests/validate.py \
   --init /path/to/native-init
 ```
 
-Use a Linux-boot AArch64 Scarlet Image with native memory/fault ABI support and
-matching native init. TCG is the default. To use HVF, pass `--accel hvf` and,
-if needed, `--qemu /path/to/compatible/qemu-system-aarch64`. The stock QEMU in
-the pinned shell aborts during HVF initialization on the validation macOS host;
-TCG uses that stock QEMU, while HVF validation supplies a compatible executable.
-This compiles test classes
-and a native supervisor, packages an isolated diskless initramfs, and records
-input checksums plus guest results under `producer/.build/guest/java-qa/`.
-Compilation or ELF auditing alone never counts as a guest execution pass.
+The test uses an isolated diskless VM and records input checksums and results.
+TCG is the default. For HVF, use `--accel hvf --qemu /path/to/compatible/qemu`;
+the pinned stock QEMU has an HVF initialization issue on the validation macOS
+host. Native memory/fault requirements and guest results are described in
+[the validation record](producer/VALIDATION.md).
 
-Builds are keyed by source, helper, toolchain and boot JDK identities. Downloads
-are checksum verified and edited source trees are rejected without resetting
-them. Use `--output` for a separate owned output directory. Receipts distinguish
-compilation/ELF inspection from actual guest execution.
-
-For narrower diagnosis, `producer/build.py --target hotspot` builds only `libjvm.a`;
-`--target runtime-probe` builds the libffi/pthread/memory syscall probe and
-`--target runtime-support-probe` builds the environment/C++ TLS destructor probe.
-Run those native binaries with `producer/tests/run-runtime.py`; building a probe alone
-does not validate guest execution. See each command's `--help`.
-
-See [the validation record](producer/VALIDATION.md) for exact source/executable
-checksums and observed guest results.
-
-## Verified scope and limits
-
-The Java smoke test executes `java -version`, UTF-8 arguments, floating-point
-operations, overlapping array copy, four platform threads, atomics, thread-local
-storage, 128 MiB of allocations with Serial GC, a 98,317-byte file round trip,
-and normal JVM destruction/process exit. The memory probe also checks guarded
-loads from invalid, unmapped, protected and lazy mappings.
-
-A separate JAR test loads a dependency through a folded manifest `Class-Path`,
-invokes methods and a constructor reflectively, calls a method handle and a
-dynamic proxy, decompresses a 98,317-byte resource, and checks a native direct
-buffer. It verifies NIO file type/size/identity, access and real paths, and
-missing-file exception translation. An invalid JAR must exit with code 1 and
-the expected missing-main-manifest diagnostic. JAR fixture classes are kept off
-the loose class path, and application arguments include UTF-8 and a leading dash.
-
-For JIT builds, a second process uses `-Xcomp`, disables inlining of the tested methods,
-and requires compilation log entries for arithmetic, field load and recursive
-methods. It checks their results, catches an implicit NullPointerException and
-a stack-guard StackOverflowError, then executes compiled code again. The native
-fault probe checks GPR/SIMD/NZCV preservation, invalid return contexts, and writes
-to PROT_NONE/read-only pages.
-
-A separate JIT stress process holds live objects and arrays in compiled frames
-on four platform threads while a controller requests eight full collections.
-Each worker recovers from eight null faults and one stack overflow. The runner
-requires compilation entries, eight GC log entries from that process, intact
-references after collection, and successful termination of all four workers.
-
-For the Java 25 tiered profile, both exception/GC processes select
-`-XX:CompilationMode=high-only` and require level 4 compilation records for
-every tested method, including trivial getters. A separate process uses normal
-tiered compilation: the runner requires C1 level 3 and C2 level 4 records,
-level 4 on-stack replacement (OSR), and an actual level 4 uncommon-trap log.
-That process verifies object state and GC survival after a never-taken branch
-triggers deoptimization, dispatch after loading a second implementation, and
-the result of a loop entered through OSR. These checks establish the exercised
-C2 paths, not Minecraft frame rates or Java TCK compatibility.
-
-This is an initial headless `java.base` port, not a complete or TCK-certified
-JDK. C1 and C2 are enabled in Java 25; virtual threads/continuations are unavailable.
-Reserved-stack annotations are also unavailable (`StackReservedPages=0`). AWT, dynamic
-JNI libraries, JVMTI/agents, JFR, process creation and the launcher's `-m`
-mode are unavailable. The initial static `libnio` backend implements read-only
-file metadata and path operations needed by JAR loading. NIO channels, selectors,
-directory enumeration and mutation remain unported. Networking and additional
-modules have not been validated; their native libraries are not part of this image.
-Process RSS and per-page residency queries are unavailable; detailed NMT
-residency is unsupported. Memory disclaim remains a reclamation hint; uncommit
-and release discard pages. HotSpot disables stack protection because the SDK
-has no stack-protector runtime. GC log timing fields can be blank because the current SDK C formatter lacks
-floating-point formatting. OpenJDK and its notices retain their upstream
-licenses; the build uses the separately licensed Scarlet SDK and libffi.
-
-## Scarlet prerequisites
-
-Scarlet must provide native syscall 53, `GetMemoryInfo`, returning the 24-byte
-`RawMemoryInfo` record (page size, managed pages, free pages), and syscall 704,
-`MemoryReadWord`, used for HotSpot's fault-tolerant SafeFetch. The latter holds
-mapping/page-table guards during an aligned 4-byte or native-word RAM load and
-returns the caller's fallback for invalid addresses or permissions. It rejects
-device memory and can fault in readable lazy pages.
-
-On AArch64, syscalls 645/646 register a per-thread alternate-stack synchronous
-fault handler and restore its versioned context. The kernel retains FP/SIMD and
-TLS state and restores only user NZCV flags. Nested handler faults are fatal;
-registrations are reset on thread cloning and successful exec. Exception delivery
-uses `AbiModule::handle_user_exception` for the ABI owning the faulting PC; the
-AArch64 frame codec and restoration live under `abi/scarlet/aarch64/fault.rs`. Lazy mapping rejects denied accesses
-so protection faults reach the handler instead of repeatedly reinstalling the
-same inaccessible page.
-
-Init opens its shared console description for both reading and writing, so
-native C writes through duplicated stdout/stderr handles have write permission.
-
-Host-side build-driver checks (Python 3.11+, included in the producer shell):
+Host checks require Python 3.11 or newer:
 
 ```sh
 python3 -m unittest discover -s producer/tests -p 'test_*.py'
 ```
 
-## Minecraft target
+## License
 
-The client target is **Minecraft Java Edition 26.3**, using its experimental
-Vulkan renderer. Its [official metadata](https://piston-meta.mojang.com/v1/packages/5df1795e16eea19d75b923d66ecca9ce183353c5/26.3.json)
-requires Java 25 and LWJGL 3.4.3. The [26.3 release notes](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3)
-confirm SDL3 window/input support. This supersedes the earlier Java 21 / 1.21.11
-candidate, which would require an OpenGL path.
-
-The official client has SHA-1 `e877b6a07acd633fb3bb475002175cec036e7b87`
-and size 41,483,720 bytes. Downloaded files are local validation inputs, not
-repository content. `net.minecraft.client.main.Main` uses class-file version
-69 (Java 25). No account credentials are needed to retrieve the official files.
-
-The current runtime has not launched Minecraft. Remaining work includes
-broader runtime/NIO compatibility, dynamic JNI loading through `scarlet-ld`,
-additional JDK modules, and native LWJGL/SDL3/shaderc/audio bindings. Analysis of
-the client alone (without third-party libraries) requests `java.desktop`,
-`java.management`, `java.naming`, `java.net.http` and `jdk.jfr` in addition to
-`java.base`; this is a lower bound, not a complete dependency audit.
-
-Minecraft [documents Vulkan 1.2 plus dynamic rendering and push descriptors](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2).
-Scarlet's pinned SGFX ICD manifest currently advertises 1.1.0. Its existing
-loader/offscreen drawing tests do not establish Minecraft feature compatibility;
-the ICD needs a feature audit and implementation work before a client launch
-can succeed. Graphics initialization must report missing features instead of
-advertising support that the driver cannot execute.
+Original producer code and documentation are licensed under **GPLv2 with the
+Classpath Exception**. OpenJDK and other dependencies retain their upstream
+licenses and notices. See [LICENSE](LICENSE), [NOTICE](NOTICE) and
+[ATTRIBUTION.md](ATTRIBUTION.md).
