@@ -8,7 +8,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     scarlet-rust-toolchain.url = "github:petitstrawberry/scarlet-rust-nix/79f356924d1a93b55904c6b2733d0b3da5ce0de5";
     scarlet-sdk = {
-      url = "github:petitstrawberry/scarlet-sdk/a071222231e8bbd96c1d54f38d99d1b27ec90805";
+      url = "github:petitstrawberry/scarlet-sdk/515e5e47eec47b2da559e8faef346fee9dc0a2bf";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.scarlet-rust-toolchain.follows = "scarlet-rust-toolchain";
     };

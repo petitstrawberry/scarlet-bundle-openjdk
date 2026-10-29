@@ -1,5 +1,137 @@
 # Validation record
 
+## 2026-10-29 — application startup and shutdown
+
+Fork commit `4225128a91a9b6145d9a98fcab3cc0eba25321ec` adds the Native
+NIO TCP/poll/pipe backend, interface enumeration, whole-file nonblocking locks,
+synchronous file-channel writes, JavaBeans platform classes and management
+library registration. The SDK dependency is
+`515e5e47eec47b2da559e8faef346fee9dc0a2bf`. Its Native runtime build passed,
+as did all 200 freestanding C/C++ header checks on AArch64 and RV64.
+
+The development build compiled a fresh C1+C2 VM with management enabled,
+the selected Java modules, and all Native libraries. It reused the existing
+launcher/support objects and configured-build staging directory; it is a local
+development image, not a CI release artifact. Native Java SHA-256:
+`086ecf74085b08792c51eaaddb6f159845998ae6b2881fa79f3ebefa2d350de7`.
+The final module image SHA-256 is
+`d2beb8a9b520575fe89ef4f437a528da43d0511c2a950075b09d0cd752b21f25`.
+The kernel, init and loader are the explicit artifacts recorded below.
+
+AArch64 HVF checks passed:
+
+- Real JMM runtime arguments, start time, heap usage/limits, thread counts,
+  memory pools and changing GC counters.
+- JavaBeans events/introspection and ZIP filesystem reads, including Unicode.
+- Foreign-process whole-file lock contention, shared/exclusive acquisition,
+  release/reopen, and rejection of unsupported ranges/blocking calls without
+  leaving a provisional Java lock-table entry.
+- SYNC/DSYNC scalar, positioned and vector writes, truncation, interrupt/close
+  behavior, and legacy `java.io.File.mkdirs`.
+- Selector wakeup, nonblocking pipes, loopback TCP connection/accept/readiness,
+  scatter/gather payloads and peer addresses under `-Xcheck:jni`.
+- A real isolated virtio NIC's name/index lookups, MTU and fixed test MAC.
+- Buffered UTF-8 console input through a Native pipe and closed-stream errors.
+- The complete C2/GC/deoptimization/JAR/JNI regression suite on the final image.
+
+An unmodified external dedicated-server JAR (SHA-1
+`64bb6d763bed0a9f1d632ec347938594144943ed`) created a world, reached its
+ready message, accepted `stop` on piped stdin, saved all dimensions and exited
+with status zero. This run used a diskless guest, loopback binding, no NIC,
+and online authentication enabled. It does not establish external DNS/TLS,
+player login, multiplayer sessions, client rendering or persistence across VM
+restarts. The startup/shutdown run used the same native executable and module
+image `385a61afc833c3b464ee5b74d3c3ff6d6192a42ba1a8e86711efab167554c735`;
+the subsequent module rebuild only adjusted source indentation.
+
+Logs and input manifests are retained locally in
+`producer/artifacts/app-validation/`, including `management-native-1`,
+`application-resources-2`, `whole-file-lock-3`, `synchronous-files-1`,
+`interfaces-network-2`, `console-input-1`, `application-c2-qa` and
+`server-start-accepted-4`. Earlier failed attempts are retained separately.
+All 43 producer host tests passed. No graphical toolkit, blocking/range lock,
+IPv6, multicast or complete socket compatibility claim is made.
+
+## 2026-10-29 — IPv4 address resolution
+
+Fork commit `5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15` adds the Scarlet
+`libnet` backend. The producer selects the shared InetAddress class initializers
+and the platform resolver implementation, links the archive, and registers its
+JNI exports in the built-in library table. The local development build reuses
+the verified unchanged C2 VM archive described below; it is not a release build.
+Native Java SHA-256:
+`2c691f17a67dcce2cbfd448c11137ff24d1133c12ce8c39a730b77e76eb2b45d`.
+The module image SHA-256 remains
+`02862d283152451affca0e5ffca9651d437b3a9181ca0f363644b1dfdf230960`.
+
+`InetAddressSmoke` passed under AArch64 HVF with `-Xcheck:jni`, both with hostname
+information enabled in exception messages and with it excluded. It verifies
+native IPv4 capability probing, IPv4 backend selection, IPv6 value initialization,
+local hostname fallback, native numeric resolution, ordered multi-address
+results with duplicates removed, retained hostnames, negative/error mapping,
+reverse-lookup numeric fallback, and four concurrent resolver callers. A real
+Native TCP listener on loopback port 7 verifies the reachability fallback;
+an unsupported explicit TTL reports an IOException. No JNI warnings occurred.
+
+`inet-supervisor.rs` provides a deterministic resolverd-protocol test service,
+so named lookups exercise JNI, native libc, Rust std and Scarlet local-socket
+IPC without depending on external DNS. It is a test fixture, not a replacement
+resolver. Invoke `validate-application.py` with
+`--supervisor producer/tests/inet-supervisor.rs`, a payload containing the compiled
+smoke class, and arguments `-Xcheck:jni`,
+`--add-opens=java.base/java.net=ALL-UNNAMED`, `-cp`, `/app`, `InetAddressSmoke`,
+`native` (or `native-private` for excluded hostname information).
+
+The file/NIO and runtime-resource regressions also passed on this image.
+An unmodified external server JAR passed InetAddress initialization and reached
+logging configuration. Its next fatal failure is the missing
+`java.beans.PropertyChangeEvent` class; optional management/JNDI lookups also
+report unavailable modules. That application run remains a failure.
+
+Receipts and logs are preserved locally in
+`producer/artifacts/app-validation/inet-final/`, `inet-private-final/`,
+`inet-nio-final/`, `inet-resources-final/`, and `inet-server-final/`.
+The first fixture attempt exposed a test-listener lifetime error; it was fixed
+before the passing runs and is not counted as a runtime pass.
+All 43 producer host tests passed. This work does not enable Java socket APIs,
+IPv6 transport or native PTR resolution, which the current libc lacks.
+
+## 2026-10-29 — native NIO and runtime resources
+
+The Java 25 native library snapshot committed as
+`a7c7484172adb6e2fdfc91f3c911f6eba7d98bcc` passed application tests under
+AArch64 HVF with the kernel and loader recorded below. The development link
+reused the existing C2 VM archive after verifying that `src/hotspot` has the
+same Git tree as `27cf2dbd8fca4c21daf9f64885ee56ff780854f0`. It rebuilt the
+native libraries and built-in JNI table and packaged the updated platform
+classes. This local development image is not a CI release artifact.
+
+Native Java SHA-256:
+`73022095254a8bfd14359fc1296582df3a110c1cd7c1c5816ea1b3f2d1154eeb`.
+Module image SHA-256:
+`02862d283152451affca0e5ffca9651d437b3a9181ca0f363644b1dfdf230960`.
+The image includes `java.base`, `java.logging`, `java.xml` and `jdk.unsupported`,
+with generated configuration, time-zone data, CA certificates and legal notices.
+
+`NioFilesSmoke` passed directory creation/listing, Unicode paths, symlinks,
+rename/delete and error mapping, file-channel positioned/direct I/O,
+truncation, and mixed heap/direct scatter/gather transfers larger than 1 MiB.
+It checks transferred bytes, partial-transfer buffer positions, file cursors
+and EOF. `RuntimeResourcesSmoke` passed SHA-256, Asia/Tokyo rules, loading
+110 CA certificates, XML parsing and logger initialization.
+
+The application runner also unpacked an unmodified external server JAR and
+reached its main class and XML logging configuration. That run failed at the
+unimplemented `java.net.InetAddress.init` entry point; it is not counted as a
+successful application launch. The runner requires an application marker as
+well as exit status because an exception in an application-created thread
+can leave the JVM's exit status at zero.
+
+Logs and SHA-256 input manifests are retained locally in
+`producer/artifacts/app-validation/local-nio-final/`, `local-resources-3/`,
+and `local-server-3/`. All 43 producer host tests also passed. The tests in
+this record used HVF only; CI independently rebuilds the pinned full runtime.
+
 ## 2026-10-29 — native JNI loading
 
 Java 25 was rebuilt from fork commit
