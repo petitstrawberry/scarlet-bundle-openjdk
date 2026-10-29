@@ -6,7 +6,7 @@
   };
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    scarlet-rust-toolchain.url = "github:petitstrawberry/scarlet-rust-nix/3c23906c35053e28d56f3aa9b1d29142535ffab7";
+    scarlet-rust-toolchain.url = "github:petitstrawberry/scarlet-rust-nix/79f356924d1a93b55904c6b2733d0b3da5ce0de5";
     scarlet-sdk = {
       url = "github:petitstrawberry/scarlet-sdk/a071222231e8bbd96c1d54f38d99d1b27ec90805";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -31,6 +31,8 @@
                 pkgs.unzip pkgs.zip pkgs.file pkgs.which pkgs.gnused pkgs.gnugrep
                 pkgs.gawk pkgs.diffutils pkgs.findutils pkgs.gnutar pkgs.gzip
                 pkgs.qemu pkgs.libffi pkgs.zlib ];
+              BUILD_CC = "${llvm.clang}/bin/clang";
+              BUILD_CXX = "${llvm.clang}/bin/clang++";
               JAVA_HOME = "${jdk.home}";
               SCARLET_NATIVE_RUNTIME = "${scarlet-sdk.packages.${system}.scarlet-native-runtime}";
               SCARLET_NATIVE_CC = "${llvm.clang-unwrapped}/bin/clang";

@@ -71,11 +71,21 @@ def collect_notices(receipt, destination, flake_inputs, revision):
     rustc = receipt['inputs']['toolchain']['environment']['SCARLET_RUSTC']
     rust = Path(subprocess.check_output([rustc, '--print', 'sysroot'], text=True).strip())
     rust_manifest = tomllib.loads((rust / 'manifest.toml').read_text())
+    rust_manifest.setdefault('native_std_commit', rust_manifest['rust_commit'])
     for label, key in (('rust-compiler-crt', 'rust_commit'), ('rust-native-std', 'native_std_commit')):
         refs[label] = source_ref('https://github.com/petitstrawberry/rust', rust_manifest[key])
     # The pinned Nix recipe supplies the backtrace submodule omitted by GitHub tarballs.
     recipe = Path(flake_inputs['inputs']['scarlet-rust-toolchain']['path']) / 'flake.nix'
-    backtrace, = re.findall(r'https://github.com/rust-lang/backtrace-rs/archive/([0-9a-f]{40})\.tar\.gz', recipe.read_text())
+    backtraces = re.findall(r'https://github.com/rust-lang/backtrace-rs/archive/([0-9a-f]{40})\.tar\.gz', recipe.read_text())
+    if backtraces:
+        backtrace, = backtraces
+    else:
+        # Full compiler builds fetch submodules with the pinned Rust source.
+        entry = json.loads(fetch('https://api.github.com/repos/petitstrawberry/rust/contents/'
+                                 'library/backtrace?ref=' + rust_manifest['native_std_commit']))
+        if entry.get('submodule_git_url') != 'https://github.com/rust-lang/backtrace-rs.git':
+            raise build.BuildError('Unexpected Rust backtrace submodule source')
+        backtrace = entry['sha']
     refs['backtrace'] = source_ref('https://github.com/rust-lang/backtrace-rs', backtrace)
     for name in ('LICENSE-MIT', 'LICENSE-APACHE', 'COPYRIGHT'):
         url = 'https://raw.githubusercontent.com/petitstrawberry/rust/' + rust_manifest['native_std_commit'] + '/' + name
