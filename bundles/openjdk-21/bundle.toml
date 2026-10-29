@@ -1,6 +1,8 @@
-# Legacy Java 21 baseline; JAR/NIO compatibility is not established for this pin.
+# Generated from the verified CI release archive.
 [[layers]]
-kind = "script"
-source = "build.sh"
+kind = "archive"
+url = "https://github.com/petitstrawberry/scarlet-bundle-openjdk/releases/download/v0.1.7/openjdk-21-aarch64-v0.1.7.tar.gz"
+sha256 = "sha256:8f444251a8c504272404789656a60bd30babf7b86eb9502a9b48c3a4c7a13daf"
+format = "tar-gz"
+strip_components = 1
 to = "/"
-architectures = ["aarch64"]
