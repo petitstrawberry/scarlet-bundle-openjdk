@@ -21,6 +21,21 @@ public class NioFilesSmoke {
             stream.write(new byte[] {1,2,3,4});
         }
         require(Files.size(file) == 4, "file metadata");
+        Path channelFile = nested.resolve("channel");
+        Files.write(channelFile, new byte[] {5,6,7,8});
+        require(Arrays.equals(Files.readAllBytes(channelFile), new byte[] {5,6,7,8}), "NIO byte I/O");
+        try (var channel = java.nio.channels.FileChannel.open(channelFile,
+                StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            channel.position(2);
+            require(channel.write(java.nio.ByteBuffer.wrap(new byte[] {9}), 0) == 1, "positioned write");
+            require(channel.position() == 2, "positioned write preserves position");
+            channel.truncate(3);
+            require(channel.size() == 3 && channel.position() == 2, "truncate and cursor");
+            var buffer = java.nio.ByteBuffer.allocateDirect(3);
+            require(channel.read(buffer, 0) == 3, "direct positioned read");
+            require(buffer.get(0) == 9 && buffer.get(2) == 7, "direct bytes");
+        }
+        Files.delete(channelFile);
         Set<String> names = new HashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(nested)) {
             for (Path entry : entries) names.add(entry.getFileName().toString());

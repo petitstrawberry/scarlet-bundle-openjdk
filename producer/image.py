@@ -68,6 +68,11 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
     module_classes = {name: jdk_build / "jdk/modules" / name for name in modules}
     for directory in module_classes.values():
         bootstrap.regular_file(directory / "module-info.class")
+    configurations = {name: jdk_build / "support/modules_conf" / name for name in modules}
+    bootstrap.regular_file(configurations["java.base"] / "security/java.security")
+    data_root = jdk_build / "support/modules_libs/java.base"
+    runtime_data = {name: bootstrap.regular_file(data_root / name)
+                    for name in ("tzdb.dat", "security/cacerts")}
     original_os = bootstrap.regular_file(source / OS_SOURCE).read_bytes()
     host_os = host_os_source(original_os)
     legal = source / "src/java.base/share/legal"
@@ -77,6 +82,11 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
               "classes_sha256": bootstrap.tree_identity(classes),
               "module_classes_sha256": {name: bootstrap.tree_identity(directory)
                                         for name, directory in module_classes.items()},
+              "runtime_data_sha256": {name: bootstrap.sha256(path)
+                                      for name, path in runtime_data.items()},
+              "module_configuration_sha256": {name: bootstrap.tree_identity(directory)
+                                               for name, directory in configurations.items()
+                                               if directory.is_dir()},
               "operating_system_sha256": hashlib.sha256(original_os).hexdigest(),
               "host_patch_source_sha256": hashlib.sha256(host_os).hexdigest(),
               "image_helper_sha256": bootstrap.sha256(Path(__file__)),
@@ -105,6 +115,16 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
             jmods = bootstrap.directory(stage / "jmods")
             for name, directory in module_classes.items():
                 arguments = [boot_jdk / "bin/jmod", "create", "--class-path", directory]
+                configuration = configurations[name]
+                if configuration.is_dir():
+                    arguments += ["--config", configuration]
+                if name == "java.base":
+                    data = bootstrap.directory(stage / "java-base-data")
+                    for relative, path in runtime_data.items():
+                        destination = data / relative
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(path, destination)
+                    arguments += ["--libs", data]
                 module_legal = source / "src" / name / "share/legal"
                 if module_legal.is_dir():
                     arguments += ["--legal-notices", module_legal]
