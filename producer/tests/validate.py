@@ -43,6 +43,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--kernel', type=Path, required=True, help='Scarlet Linux-boot AArch64 Image')
     p.add_argument('--init', type=Path, required=True, help='Scarlet native init executable')
+    p.add_argument('--loader', type=Path, help='scarlet-ld, required for loader-linked Java')
     p.add_argument('--build-receipt', type=Path, required=True)
     p.add_argument('--boot-jdk', type=Path, required=True)
     p.add_argument('--output', type=Path, default=ROOT/'producer/.build/guest')
@@ -51,6 +52,10 @@ def main():
     p.add_argument('--timeout', type=int, default=180)
     a = p.parse_args()
     receipt = json.loads(a.build_receipt.read_text())
+    a.jni = receipt.get('elf', {}).get('interpreter') == '/bin/scarlet-ld'
+    a.openjdk_source = Path(receipt['inputs']['sources']['openjdk'])
+    if a.jni and (not a.loader or not a.loader.is_file()):
+        p.error('Loader-linked Java requires --loader pointing to scarlet-ld')
     a.jar = Path(receipt['java_home']).name == 'openjdk-25'
     a.jit = receipt.get('inputs', {}).get('jvm_variant', 'zero') != 'zero'
     a.tiered = receipt.get('inputs', {}).get('jvm_variant') == 'tiered'
@@ -79,17 +84,23 @@ def build_and_run(a, o, java, java_home):
          '-C','target-feature=+crt-static','-C','relocation-model=static',
          '-C','link-arg=--no-dynamic-linker','-O',HERE/'supervisor.rs','-o',o/'supervisor']
         + (['--cfg','jit'] if a.jit else []) + (['--cfg','jar'] if a.jar else [])
-        + (['--cfg','tiered'] if a.tiered else []),o/'supervisor-build.log',env)
+        + (['--cfg','tiered'] if a.tiered else [])
+        + (['--cfg','jni'] if a.jni else []),o/'supervisor-build.log',env)
     run([a.boot_jdk.resolve()/'bin/javac','-encoding','UTF-8','-d',o/'classes',
-         HERE/'Hello.java',HERE/'Jit.java',HERE/'JitStress.java',HERE/'Tiered.java'],o/'javac.log',env)
+         HERE/'Hello.java',HERE/'Jit.java',HERE/'JitStress.java',HERE/'Tiered.java']
+        + ([HERE/'Jni.java'] if a.jni else []),o/'javac.log',env)
     if a.jar:
         run([a.boot_jdk.resolve()/'bin/javac','-encoding','UTF-8','-d',o/'jar-classes',
              HERE/'JarMain.java',HERE/'fixture/Dependency.java'],o/'jar-javac.log',env)
         jar_fixtures(o/'jar-classes', o/'classes')
+    if a.jni:
+        run([sys.executable, HERE/'build-jni.py', '--source', a.openjdk_source,
+             '--output', o/'jni-libraries'], o/'jni-build.log', env)
     run([sys.executable,HERE/'run-java.py','--kernel',a.kernel.resolve(),'--init',a.init.resolve(),'--java',java,
          '--java-home',java_home,'--supervisor',o/'supervisor','--classes',o/'classes',
          '--output',o/'java-qa','--accel',a.accel,'--qemu',a.qemu,'--timeout',a.timeout]
-        + (['--jit'] if a.jit else []) + (['--tiered'] if a.tiered else []),o/'run.log',env)
+        + (['--jit'] if a.jit else []) + (['--tiered'] if a.tiered else [])
+        + (['--loader', a.loader.resolve(), '--jni-libraries', o/'jni-libraries'] if a.jni else []),o/'run.log',env)
     print('Native OpenJDK guest PASS: '+str(o/'java-qa/validation.json'))
 
 if __name__ == '__main__':

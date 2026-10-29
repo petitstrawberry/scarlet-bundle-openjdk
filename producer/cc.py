@@ -6,6 +6,8 @@ import subprocess
 import sys
 
 args = sys.argv[1:]
+dynamic = "--scarlet-dynamic" in args
+args = [a for a in args if a != "--scarlet-dynamic"]
 cxx = Path(sys.argv[0]).name.endswith('++')
 cc = os.environ['SCARLET_NATIVE_CXX' if cxx else 'SCARLET_NATIVE_CC']
 runtime = Path(os.environ['SCARLET_NATIVE_RUNTIME'])
@@ -24,8 +26,14 @@ if linking:
     crt = sysroot/'lib/rustlib/aarch64-unknown-scarlet/lib/scarlet-crt0.o'
     if not crt.is_file():
         raise SystemExit('Scarlet Rust CRT not found: '+str(crt))
-    flags += ['-nostdlib', '-fuse-ld=lld', '-static', '-Wl,--gc-sections',
+    flags += ['-nostdlib', '-fuse-ld=lld', '-Wl,--gc-sections',
               '-Wl,-z,max-page-size=4096', '-Wl,--wrap=main', '-Wl,--undefined=__wrap_main', str(crt)]
+    if dynamic:
+        flags += ['-Wl,-pie', '-Wl,--dynamic-linker=/bin/scarlet-ld',
+                  '-Wl,--export-dynamic', '-Wl,-z,dynamic-undefined-weak',
+                  '-Wl,--unresolved-symbols=ignore-all']
+    else:
+        flags += ['-static']
     args += ['-Wl,--start-group'] + [str(runtime/'lib'/lib) for lib in
              ('libc++.a', 'libc++abi.a', 'libscarlet_c_startup.a', 'libscarlet_cxx_support.a', 'libscarlet_c.a')] + ['-Wl,--end-group']
 environment = os.environ.copy()

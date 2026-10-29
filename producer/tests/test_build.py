@@ -371,6 +371,28 @@ class BootstrapTests(unittest.TestCase):
         with self.assertRaisesRegex(build.BuildError, "static Scarlet"):
             build.audit_probe(probe, logfile, self.env)
 
+    def test_dynamic_audit_requires_real_loader_imports_and_rejects_foreign_abi(self):
+        report = dict(machine="aarch64", osabi=0x53, entry=4096, needed=[],
+                      rpath=None, runpath=None, elf_type="DYN", interpreter="/bin/scarlet-ld",
+                      relocations={"RELATIVE": 2, "JUMP_SLOT": 4}, hash_tables=["gnu"],
+                      textrel=False, relr=False, symbol_versioning=False,
+                      undefined_relocated_symbols=[dict(name=n, binding="GLOBAL")
+                          for n in ("dlopen", "dlsym", "dlclose", "dlerror")])
+        logfile = self.root / "dynamic-audit.json"
+        def audit(overrides):
+            logfile.write_text(json.dumps([{**report, **overrides}]))
+            with mock.patch.object(build, "run"):
+                return build.audit_probe(self.root / "java", logfile, self.env, dynamic=True)
+        audit({})
+        for overrides in ({"undefined_relocated_symbols": []},
+                          {"interpreter": "/lib/ld-linux-aarch64.so.1"},
+                          {"needed": ["libc.so.6"]}, {"textrel": True},
+                          {"symbol_versioning": True}, {"relocations": {"TLSDESC": 1}},
+                          {"undefined_relocated_symbols": report["undefined_relocated_symbols"]
+                            + [dict(name="unimplemented", binding="GLOBAL")]}):
+            with self.subTest(overrides=overrides), self.assertRaises(build.BuildError):
+                audit(overrides)
+
     def support_fixture(self, osabi=0x53, fail_rust=False):
         """Exercise the CLI and real ELF auditor with fake compilation only."""
         here = self.root / "openjdk"

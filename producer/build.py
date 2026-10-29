@@ -455,16 +455,27 @@ def configure_hotspot(source, build, boot_jdk, ffi, cc, cxx, env, logfile, varia
     run(command, build, logfile, env)
 
 
-def audit_probe(probe, logfile, env, auditor=None):
+def audit_probe(probe, logfile, env, auditor=None, dynamic=False):
     run([sys.executable, auditor or ROOT / "producer/elf_audit.py", "--machine", "aarch64", "--scarlet", probe],
         probe.parent, logfile, env)
     report, = json.loads(logfile.read_text())
-    if (report.get("machine") != "aarch64" or report.get("osabi") != 0x53
-            or report.get("elf_type") != "EXEC" or not report.get("entry")
-            or report.get("interpreter") or report.get("needed") or report.get("rpath")
-            or report.get("runpath") or report.get("undefined_relocated_symbols")
-            or report.get("relocations") or report.get("errors") or report.get("error")):
-        raise BuildError(f"Expected a static Scarlet AArch64 executable; see {logfile}")
+    common_invalid = (report.get("machine") != "aarch64" or report.get("osabi") != 0x53
+                      or not report.get("entry") or report.get("needed") or report.get("rpath")
+                      or report.get("runpath") or report.get("errors") or report.get("error"))
+    if dynamic:
+        imports = {item["name"] for item in report["undefined_relocated_symbols"]}
+        required = {"dlopen", "dlsym", "dlclose", "dlerror"}
+        invalid = (report["elf_type"] != "DYN" or report["interpreter"] != "/bin/scarlet-ld"
+                   or not required <= imports or imports - required - {"environ"}
+                   or set(report["relocations"]) - {"RELATIVE", "GLOB_DAT", "JUMP_SLOT", "ABS64"}
+                   or not report["hash_tables"] or report["textrel"] or report["relr"]
+                   or report["symbol_versioning"])
+    else:
+        invalid = (report["elf_type"] != "EXEC" or report["interpreter"]
+                   or report["undefined_relocated_symbols"] or report["relocations"])
+    if common_invalid or invalid:
+        kind = "loader-linked" if dynamic else "static"
+        raise BuildError(f"Expected a {kind} Scarlet AArch64 executable; see {logfile}")
     return report
 
 
@@ -514,7 +525,7 @@ def stage_java_helpers(work, sources, overlay, driver_data, cc_data, audit_data)
     return helpers
 
 
-def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, sources, helpers):
+def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, sources, helpers, dynamic=False):
     run(["make", "java.base-java", f"JOBS={jobs}"], jdk_build, work / "logs/java-base-build.log", env)
     regular_file(jdk_build / "support/headers/java.base/java_lang_System.h")
     regular_file(jdk_build / "jdk/modules/java.base/module-info.class")
@@ -541,14 +552,15 @@ def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, 
          "-I", source / "src/java.base/scarlet/native/include", "-c", work / "launcher.c",
          "-o", launcher_obj], work, work / "logs/launcher-build.log", env)
     regular_file(launcher_obj)
-    run([cc, "-O2", "-c", builtins, "-o", builtins_obj], work, work / "logs/builtins-build.log", env)
+    run([cc, "-O2", "-fPIC", "-c", builtins, "-o", builtins_obj], work, work / "logs/builtins-build.log", env)
     regular_file(builtins_obj)
     support, bridge = compile_runtime_support(work, cc, env, sources)
     ffi_archive = regular_file(ffi / "lib/libffi.a")
-    run([cxx, support, bridge, launcher_obj, builtins_obj, *archives, ffi_archive,
+    link_mode = ["--scarlet-dynamic"] if dynamic else []
+    run([cxx, *link_mode, support, bridge, launcher_obj, builtins_obj, *archives, ffi_archive,
          "-Wl,--error-limit=0", "-o", java], work, work / "logs/java-link.log", env)
     regular_file(java)
-    elf = audit_probe(java, work / "logs/java-elf.json", env, helpers / "elf_audit.py")
+    elf = audit_probe(java, work / "logs/java-elf.json", env, helpers / "elf_audit.py", dynamic=dynamic)
     image_root = work / "image"
     run([sys.executable, "-B", helpers / "image.py", "--source", source, "--build", jdk_build,
          "--boot-jdk", boot_jdk, "--java", java, "--output", image_root],
@@ -660,7 +672,8 @@ def build(args):
                 artifact = regular_file(jdk_build / archive)
                 if args.target == "java":
                     receipt.update(build_java(trees["openjdk"], jdk_build, boot_jdk, ffi, artifact,
-                                              work, cc, cxx, env, args.jobs, probe_sources, helpers))
+                                              work, cc, cxx, env, args.jobs, probe_sources, helpers,
+                                              dynamic=major >= 25))
                 else:
                     receipt.update(artifact=str(artifact), artifact_sha256=sha256(artifact),
                                    scope="Static HotSpot archive only; not a runnable JDK or JVM execution test")

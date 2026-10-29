@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only WITH Classpath-exception-2.0
 fn main() {
     let version = std::process::Command::new("/bin/java")
-        .args(["-XX:ErrorFile=/tmp/openjdk-error.log", "-version"])
+        .args(["-XX:ErrorFile=/tmp/openjdk-error.log", "--version"])
         .status();
     if !matches!(version, Ok(ref status) if status.success()) {
         println!("OPENJDK_GUEST FAIL version {version:?}");
@@ -137,6 +137,38 @@ fn main() {
             Ok(status) if status.success() => println!("OPENJDK_GUEST tiered child exit=0"),
             other => {
                 println!("OPENJDK_GUEST FAIL tiered {other:?}");
+                report_crash();
+            }
+        }
+    }
+    #[cfg(jni)]
+    {
+        let compiler_options: &[&str] = if cfg!(tiered) {
+            &[
+                "-Xcomp",
+                "-XX:CompilationMode=high-only",
+                "-XX:-BackgroundCompilation",
+                "-XX:+PrintCompilation",
+                "-XX:CompileCommand=compileonly,Jni::*",
+            ]
+        } else {
+            &[]
+        };
+        let result = std::process::Command::new("/bin/java")
+            .args(compiler_options)
+            .args([
+                "-XX:ErrorFile=/tmp/openjdk-error.log",
+                "-Xcheck:jni",
+                "-Djava.library.path=/app/lib",
+                "-cp",
+                "/app",
+                "Jni",
+            ])
+            .status();
+        match result {
+            Ok(status) if status.success() => println!("OPENJDK_GUEST JNI child exit=0"),
+            other => {
+                println!("OPENJDK_GUEST FAIL JNI {other:?}");
                 report_crash();
             }
         }

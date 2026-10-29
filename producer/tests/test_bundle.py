@@ -65,9 +65,14 @@ class BundleTests(unittest.TestCase):
             self.assertIn(source['commit'], source['url'])
             manifest = root / 'bundles' / ('openjdk-' + major) / 'bundle.toml'
             layer, = tomllib.loads(manifest.read_text())['layers']
-            self.assertEqual(layer['kind'], 'script')
-            self.assertEqual(layer['architectures'], ['aarch64'])
-            self.assertTrue((manifest.parent / layer['source']).is_file())
+            self.assertEqual(layer['kind'], 'archive')
+            self.assertEqual(layer['format'], 'tar-gz')
+            self.assertEqual(layer['strip_components'], 1)
+            self.assertEqual(layer['to'], '/')
+            self.assertRegex(layer['sha256'], r'^sha256:[0-9a-f]{64}$')
+            self.assertTrue(layer['url'].startswith(
+                'https://github.com/petitstrawberry/scarlet-bundle-openjdk/releases/download/'))
+            self.assertIn('/openjdk-' + major + '-aarch64-', layer['url'])
 
 
 if __name__ == '__main__':
