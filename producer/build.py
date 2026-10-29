@@ -526,7 +526,9 @@ def stage_java_helpers(work, sources, overlay, driver_data, cc_data, audit_data)
 
 
 def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, sources, helpers, dynamic=False):
-    run(["make", "java.base-java", f"JOBS={jobs}"], jdk_build, work / "logs/java-base-build.log", env)
+    modules = ("java.base", "jdk.unsupported") if source_version(source)[0] >= 25 else ("java.base",)
+    run(["make", *(module + "-java" for module in modules), f"JOBS={jobs}"],
+        jdk_build, work / "logs/java-base-build.log", env)
     regular_file(jdk_build / "support/headers/java.base/java_lang_System.h")
     regular_file(jdk_build / "jdk/modules/java.base/module-info.class")
     core = work / "core-libs"

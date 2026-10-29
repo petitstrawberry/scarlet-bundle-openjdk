@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package native Scarlet java and built java.base classes using a matching host JDK.
+"""Package native Scarlet java and built runtime module classes using a matching host JDK.
 
 Normally invoked by build.py --target java. Standalone usage:
   python3 producer/image.py --source /prepared/jdk --build /configured/build \
@@ -64,7 +64,10 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
         if (canonical_output == path or canonical_output in path.parents or path in canonical_output.parents):
             raise bootstrap.BuildError(f"Image output overlaps {label} input: {output}")
     classes = jdk_build / "jdk/modules/java.base"
-    bootstrap.regular_file(classes / "module-info.class")
+    modules = ("java.base", "jdk.unsupported") if major >= 25 else ("java.base",)
+    module_classes = {name: jdk_build / "jdk/modules" / name for name in modules}
+    for directory in module_classes.values():
+        bootstrap.regular_file(directory / "module-info.class")
     original_os = bootstrap.regular_file(source / OS_SOURCE).read_bytes()
     host_os = host_os_source(original_os)
     legal = source / "src/java.base/share/legal"
@@ -72,6 +75,8 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
     inputs = {"source": str(source), "build": str(jdk_build), "boot_jdk": boot_identity,
               "java": str(java), "java_sha256": bootstrap.sha256(java),
               "classes_sha256": bootstrap.tree_identity(classes),
+              "module_classes_sha256": {name: bootstrap.tree_identity(directory)
+                                        for name, directory in module_classes.items()},
               "operating_system_sha256": hashlib.sha256(original_os).hexdigest(),
               "host_patch_source_sha256": hashlib.sha256(host_os).hexdigest(),
               "image_helper_sha256": bootstrap.sha256(Path(__file__)),
@@ -98,11 +103,15 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
             image = stage / "image"
             image.mkdir()
             jmods = bootstrap.directory(stage / "jmods")
-            bootstrap.run([boot_jdk / "bin/jmod", "create", "--class-path", classes,
-                           "--legal-notices", legal,
-                           "--module-version", module_version, "--target-platform", TARGET_PLATFORM,
-                           jmods / "java.base.jmod"], stage, logs / "jmod.log", env)
-            bootstrap.regular_file(jmods / "java.base.jmod")
+            for name, directory in module_classes.items():
+                arguments = [boot_jdk / "bin/jmod", "create", "--class-path", directory]
+                module_legal = source / "src" / name / "share/legal"
+                if module_legal.is_dir():
+                    arguments += ["--legal-notices", module_legal]
+                bootstrap.run([*arguments, "--module-version", module_version,
+                               "--target-platform", TARGET_PLATFORM, jmods / (name + ".jmod")],
+                              stage, logs / ("jmod-" + name + ".log"), env)
+                bootstrap.regular_file(jmods / (name + ".jmod"))
 
             host_source = stage / "host-source"
             enum_source = host_source / "jdk/internal/util/OperatingSystem.java"
@@ -122,11 +131,11 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
             java_home = image / guest_home
             java_home.parent.mkdir(parents=True)
             bootstrap.run([boot_jdk / "bin/jlink", f"-J--patch-module=java.base={host_patch}",
-                           "--module-path", jmods, "--add-modules", "java.base", "--output", java_home,
+                           "--module-path", jmods, "--add-modules", ",".join(modules), "--output", java_home,
                            "--no-header-files", "--no-man-pages"], stage, logs / "jlink.log", env)
-            modules = bootstrap.regular_file(java_home / "lib/modules")
+            modules_file = bootstrap.regular_file(java_home / "lib/modules")
             bootstrap.regular_file(java_home / "release")
-            if not modules.stat().st_size:
+            if not modules_file.stat().st_size:
                 raise bootstrap.BuildError("jlink produced an empty lib/modules")
             # Install only the native executable, never a host launcher or the
             # temporary jlink patch. /app is available for explicitly selected classes.
@@ -137,15 +146,17 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
             (image / "bin/java").chmod(0o755)
             (image / "app").mkdir()
             if (bootstrap.sha256(image / "bin/java") != inputs["java_sha256"]
-                    or bootstrap.tree_identity(classes) != inputs["classes_sha256"]
+                    or any(bootstrap.tree_identity(directory) != inputs["module_classes_sha256"][name]
+                           for name, directory in module_classes.items())
                     or (source / OS_SOURCE).read_bytes() != original_os):
                 raise bootstrap.BuildError("Packaging inputs changed during image creation; image not published")
             receipt = {"inputs": inputs, "artifact": str(output / "bin/java"),
-                       "java_sha256": inputs["java_sha256"], "modules_sha256": bootstrap.sha256(modules),
+                       "java_sha256": inputs["java_sha256"], "modules_sha256": bootstrap.sha256(modules_file),
                        "image_root": str(output), "java_home": str(output / guest_home),
                        "guest_java_home": "/" + guest_home.as_posix(), "guest_class_path": ".",
                        "payload_sha256": payload_identity(image),
-                       "scope": "Native Java and Scarlet java.base packaged; not guest-tested"}
+                       "modules": list(modules),
+                       "scope": "Native Java and Scarlet runtime modules packaged; not guest-tested"}
             # Publish only completed payloads. Never replace an existing tree;
             # an interrupted publication is reported on retry, not reset.
             for name in PAYLOAD_DIRS:

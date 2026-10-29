@@ -1,7 +1,8 @@
 # scarlet-bundle-openjdk
 
 OpenJDK runtime bundles for native Scarlet AArch64. They use Scarlet's native
-ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base` module.
+ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base` module. Java 25 also includes
+`jdk.unsupported` for libraries that use `sun.misc.Unsafe`.
 
 | Bundle | Default VM | Executable | Java home |
 | --- | --- | --- | --- |
@@ -52,7 +53,7 @@ Closing a library releases its handle; mappings remain until process exit.
 Java 21 retains static built-in libraries only. Existing archive pins retain
 the features of their release until updated by the publishing workflow.
 
-This is a headless `java.base` port. Networking, NIO
+This is a headless port with a limited module set. Networking, NIO
 channels/selectors, directory enumeration/mutation, AWT, JVMTI, JFR, virtual
 threads/continuations, process creation and module-mode launch remain
 unavailable or unported. It is not a complete or TCK-certified JDK.
