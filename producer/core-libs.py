@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from build import source_version
 
 
 HERE = Path(__file__).resolve().parent
@@ -33,8 +34,13 @@ OWNER = "scarlet-openjdk-core-libs-v1\n"
 
 def libraries(source):
     # Older Scarlet source pins predate the NIO backend.
-    return LIBRARIES + tuple(name for name in ("nio", "net")
+    return (LIBRARIES + tuple(name for name in ("nio", "net")
                              if (source / "src/java.base/scarlet/native" / ("lib" + name)).is_dir())
+            + (("management",) if source_version(source)[0] >= 25 else ()))
+
+
+def library_module(library):
+    return "java.management" if library == "management" else "java.base"
 
 
 def included_source(library, platform, relative):
@@ -79,7 +85,7 @@ def generate_headers(source, build, boot_jdk, output):
     requested = set()
     for platform in ("share", "unix", "scarlet"):
         for library in libraries(source):
-            directory = base / platform / "native" / ("lib" + library)
+            directory = source / "src" / library_module(library) / platform / "native" / ("lib" + library)
             for path in directory.rglob("*"):
                 if (path.suffix in (".c", ".cpp", ".h")
                         and included_source(library, platform, path.relative_to(directory))):
@@ -176,7 +182,6 @@ def main():
 
 
 def build_libraries(args, source, build, headers, runtime, output):
-    base = source / "src/java.base"
     ar, nm = (os.environ["SCARLET_NATIVE_" + name] for name in ("AR", "NM"))
     manifest = {"source": str(source), "build": str(build), "headers": str(headers),
                 "runtime": str(runtime), "archives": {}, "sources": {}, "failures": []}
@@ -191,12 +196,14 @@ def build_libraries(args, source, build, headers, runtime, output):
         # Snapshot headers, avoiding concurrent reads while another agent's
         # javac publishes its output. Missing headers fail individual compiles.
         shutil.copytree(headers, work / "headers")
+        if "management" in libraries(source):
+            shutil.copytree(build / "support/headers/java.management", work / "headers", dirs_exist_ok=True)
         for library in libraries(source):
             dest = work / ("lib" + library)
             dest.mkdir()
             origins = {}
             for platform in ("share", "unix", "scarlet"):
-                directory = base / platform / "native" / dest.name
+                directory = source / "src" / library_module(library) / platform / "native" / dest.name
                 if not directory.is_dir():
                     continue
                 for path in sorted(directory.rglob("*")):

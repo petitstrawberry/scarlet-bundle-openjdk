@@ -2,8 +2,9 @@
 
 OpenJDK runtime bundles for native Scarlet AArch64. They use Scarlet's native
 ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base`, `java.logging`, and
-`java.xml` modules. Java 25 also includes
-`jdk.unsupported` for libraries that use `sun.misc.Unsafe`.
+`java.xml` modules. The Java 25 recipe also includes `java.datatransfer`,
+`java.prefs`, `java.desktop`, `java.management`, `jdk.zipfs`, and
+`jdk.unsupported`.
 
 | Bundle | Default VM | Executable | Java home |
 | --- | --- | --- | --- |
@@ -40,7 +41,11 @@ Java 25 also supports `-jar`, including manifest `Class-Path` dependencies.
 
 Java 25 includes C1 and C2 tiered compilation, Serial GC, platform threads,
 reflection, method handles, JAR/ZIP reading, direct buffers, NIO file channels,
-directory enumeration and filesystem mutations. IPv4 `InetAddress` resolution
+directory enumeration and filesystem mutations. It also supports JavaBeans,
+ZIP filesystems, standard VM management counters, nonblocking whole-file locks,
+SYNC/DSYNC file-channel writes, pipes, poll selectors and IPv4 NIO TCP channels.
+Network interface names, indices, MAC addresses, MTUs and configured IPv4
+addresses come from Native network snapshots. IPv4 `InetAddress` resolution
 uses Scarlet's native libc and resolver service. Reachability probes use the
 TCP echo-port fallback. The native environment has no node-name service, so
 local hostname lookup uses the standard `localhost` fallback. IPv6 transport
@@ -58,8 +63,10 @@ Closing a library releases its handle; mappings remain until process exit.
 Java 21 retains static built-in libraries only. Existing archive pins retain
 the features of their release until updated by the publishing workflow.
 
-This is a headless port with a limited module set. Java socket APIs, NIO
-network channels/selectors, file range locking, AWT, JVMTI, JFR, virtual
+This is a headless port with a limited module set. Including `java.desktop`
+provides JavaBeans classes; AWT graphics, fonts and a window toolkit are unported.
+Blocking socket interruption/pre-close, complete Java socket APIs, UDP/multicast,
+blocking/range file locks, JVMTI, JFR, virtual
 threads/continuations, process creation and module-mode launch remain
 unavailable or unported. It is not a complete or TCK-certified JDK.
 
@@ -130,7 +137,7 @@ python3 producer/tests/validate.py \
 ```
 
 The test uses an isolated diskless VM and records input checksums and results.
-TCG is the default. For HVF, use `--accel hvf --qemu /path/to/compatible/qemu`;
+For HVF, use `--accel hvf --qemu /path/to/compatible/qemu`;
 the pinned stock QEMU has an HVF initialization issue on the validation macOS
 host. Native memory/fault requirements and guest results are described in
 [the validation record](producer/VALIDATION.md).

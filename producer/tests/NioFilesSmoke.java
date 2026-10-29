@@ -11,6 +11,10 @@ public class NioFilesSmoke {
         Path nested = root.resolve("nested/日本語");
         Files.createDirectories(nested);
         require(Files.isDirectory(nested), "nested mkdir");
+        Path legacy = root.resolve("legacy/child");
+        require(legacy.toFile().mkdirs() && legacy.toFile().isDirectory(), "java.io directory creation");
+        Files.delete(legacy);
+        Files.delete(legacy.getParent());
         Files.createDirectories(nested);
         try {
             Files.createDirectory(nested);
@@ -36,6 +40,31 @@ public class NioFilesSmoke {
             require(buffer.get(0) == 9 && buffer.get(2) == 7, "direct bytes");
         }
         Files.delete(channelFile);
+        for (var mode : List.of(StandardOpenOption.SYNC, StandardOpenOption.DSYNC)) {
+            Path synchronous = nested.resolve("sync-" + mode);
+            Files.write(synchronous, new byte[] {1,2}, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, mode);
+            try (var channel = java.nio.channels.FileChannel.open(synchronous,
+                    StandardOpenOption.READ, StandardOpenOption.WRITE, mode)) {
+                require(channel.write(java.nio.ByteBuffer.wrap(new byte[] {3}), 1) == 1, "synchronous positioned write");
+                require(channel.write(new java.nio.ByteBuffer[] {
+                    java.nio.ByteBuffer.wrap(new byte[] {4}), java.nio.ByteBuffer.wrap(new byte[] {5})}) == 2,
+                    "synchronous vector write");
+                channel.truncate(1);
+            }
+            require(Arrays.equals(Files.readAllBytes(synchronous), new byte[] {4}), "synchronous bytes and truncation");
+            var interrupted = java.nio.channels.FileChannel.open(synchronous, StandardOpenOption.WRITE, mode);
+            Thread.currentThread().interrupt();
+            try {
+                interrupted.write(java.nio.ByteBuffer.wrap(new byte[] {6}));
+                throw new AssertionError("interrupted synchronous channel remained writable");
+            } catch (java.nio.channels.ClosedByInterruptException expectedInterrupt) {
+                require(!interrupted.isOpen(), "interrupted synchronous channel closed");
+            } finally {
+                Thread.interrupted();
+                interrupted.close();
+            }
+            Files.delete(synchronous);
+        }
         Path vectorFile = nested.resolve("vectors");
         byte[] expected = new byte[1_200_004];
         for (int i = 0; i < expected.length; ++i) expected[i] = (byte)(i * 31);

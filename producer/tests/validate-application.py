@@ -28,6 +28,8 @@ def main():
     for name in ('kernel', 'init', 'loader', 'java', 'java-home', 'app', 'arguments', 'output'):
         p.add_argument('--' + name, type=Path, required=True)
     p.add_argument('--qemu', required=True)
+    p.add_argument('--test-network', action='store_true',
+                   help='Attach an isolated virtio test NIC for interface enumeration')
     p.add_argument('--supervisor', type=Path, default=HERE / 'application-supervisor.rs',
                    help='Native Rust supervisor source; defaults to the isolated application runner')
     p.add_argument('--timeout', type=int, default=180)
@@ -63,7 +65,9 @@ def main():
     entries['app/.java-arguments'] = (0o100644, ('\n'.join(args) + '\n').encode())
     image = out / 'initramfs.cpio'; archive([(n, *v) for n, v in sorted(entries.items())], image)
     command = [a.qemu, '-machine', 'virt,gic-version=3', '-accel', 'hvf', '-cpu', 'host', '-m', '4G', '-smp', '4',
-        '-display', 'none', '-monitor', 'none', '-serial', 'stdio', '-nic', 'none', '-no-reboot',
+        '-display', 'none', '-monitor', 'none', '-serial', 'stdio',
+        *(['-global', 'virtio-mmio.force-legacy=false', '-netdev', 'user,id=testnet,restrict=on', '-device',
+           'virtio-net-device,netdev=testnet,mac=52:54:00:12:34:56'] if a.test_network else ['-nic', 'none']), '-no-reboot',
         '-kernel', str(a.kernel.resolve()), '-initrd', str(image), '-append', 'console=ttyAMA0 init.exec=/bin/application-test']
     timed_out = False
     with (out / 'qemu.log').open('w') as log:

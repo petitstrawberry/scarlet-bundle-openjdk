@@ -1,5 +1,57 @@
 # Validation record
 
+## 2026-10-29 — application startup and shutdown
+
+Fork commit `4225128a91a9b6145d9a98fcab3cc0eba25321ec` adds the Native
+NIO TCP/poll/pipe backend, interface enumeration, whole-file nonblocking locks,
+synchronous file-channel writes, JavaBeans platform classes and management
+library registration. The SDK dependency is
+`515e5e47eec47b2da559e8faef346fee9dc0a2bf`. Its Native runtime build passed,
+as did all 200 freestanding C/C++ header checks on AArch64 and RV64.
+
+The development build compiled a fresh C1+C2 VM with management enabled,
+the selected Java modules, and all Native libraries. It reused the existing
+launcher/support objects and configured-build staging directory; it is a local
+development image, not a CI release artifact. Native Java SHA-256:
+`086ecf74085b08792c51eaaddb6f159845998ae6b2881fa79f3ebefa2d350de7`.
+The final module image SHA-256 is
+`d2beb8a9b520575fe89ef4f437a528da43d0511c2a950075b09d0cd752b21f25`.
+The kernel, init and loader are the explicit artifacts recorded below.
+
+AArch64 HVF checks passed:
+
+- Real JMM runtime arguments, start time, heap usage/limits, thread counts,
+  memory pools and changing GC counters.
+- JavaBeans events/introspection and ZIP filesystem reads, including Unicode.
+- Foreign-process whole-file lock contention, shared/exclusive acquisition,
+  release/reopen, and rejection of unsupported ranges/blocking calls without
+  leaving a provisional Java lock-table entry.
+- SYNC/DSYNC scalar, positioned and vector writes, truncation, interrupt/close
+  behavior, and legacy `java.io.File.mkdirs`.
+- Selector wakeup, nonblocking pipes, loopback TCP connection/accept/readiness,
+  scatter/gather payloads and peer addresses under `-Xcheck:jni`.
+- A real isolated virtio NIC's name/index lookups, MTU and fixed test MAC.
+- Buffered UTF-8 console input through a Native pipe and closed-stream errors.
+- The complete C2/GC/deoptimization/JAR/JNI regression suite on the final image.
+
+An unmodified external dedicated-server JAR (SHA-1
+`64bb6d763bed0a9f1d632ec347938594144943ed`) created a world, reached its
+ready message, accepted `stop` on piped stdin, saved all dimensions and exited
+with status zero. This run used a diskless guest, loopback binding, no NIC,
+and online authentication enabled. It does not establish external DNS/TLS,
+player login, multiplayer sessions, client rendering or persistence across VM
+restarts. The startup/shutdown run used the same native executable and module
+image `385a61afc833c3b464ee5b74d3c3ff6d6192a42ba1a8e86711efab167554c735`;
+the subsequent module rebuild only adjusted source indentation.
+
+Logs and input manifests are retained locally in
+`producer/artifacts/app-validation/`, including `management-native-1`,
+`application-resources-2`, `whole-file-lock-3`, `synchronous-files-1`,
+`interfaces-network-2`, `console-input-1`, `application-c2-qa` and
+`server-start-accepted-4`. Earlier failed attempts are retained separately.
+All 43 producer host tests passed. No graphical toolkit, blocking/range lock,
+IPv6, multicast or complete socket compatibility claim is made.
+
 ## 2026-10-29 — IPv4 address resolution
 
 Fork commit `5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15` adds the Scarlet

@@ -435,6 +435,8 @@ def configure_hotspot(source, build, boot_jdk, ffi, cc, cxx, env, logfile, varia
     compilers = {"zero": "", "c1": "compiler1,-compiler2,",
                  "tiered": "compiler1,compiler2,-jvmci,"}
     features = compilers[variant] + JVM_FEATURES
+    if major >= 25:
+        features = features.replace("-management", "management")
     command = ["bash", source / "configure", f"--with-conf-name=scarlet-{variant}",
                "--openjdk-target=aarch64-unknown-scarlet", "--with-toolchain-type=clang",
                f"--with-boot-jdk={boot_jdk}", f"--with-build-jdk={boot_jdk}",
@@ -527,7 +529,10 @@ def stage_java_helpers(work, sources, overlay, driver_data, cc_data, audit_data)
 
 def runtime_modules(major):
     modules = ("java.base", "java.logging", "java.xml")
-    return (*modules, "jdk.unsupported") if major >= 25 else modules
+    if major >= 25:
+        return (*modules, "java.datatransfer", "java.prefs", "java.desktop",
+                "java.management", "jdk.zipfs", "jdk.unsupported")
+    return modules
 
 
 def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, sources, helpers, dynamic=False):
@@ -546,6 +551,8 @@ def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, 
         archives.append(regular_file(core / "libnio.a"))
     if (source / "src/java.base/scarlet/native/libnet").is_dir():
         archives.append(regular_file(core / "libnet.a"))
+    if source_version(source)[0] >= 25:
+        archives.append(regular_file(core / "libmanagement.a"))
     builtins = work / "builtins.c"
     if exists(builtins):
         regular_file(builtins)

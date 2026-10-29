@@ -1,10 +1,10 @@
 {
   "openjdk": {
     "version": "jdk-25.0.5+8",
-    "commit": "5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15",
-    "url": "https://codeload.github.com/petitstrawberry/jdk25u/tar.gz/5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15",
-    "sha256": "f30a27845699f6b484374aa7991c5df10efaef6872df22b2b5ac0d14f2206a7f",
-    "directory": "jdk25u-5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15",
+    "commit": "4225128a91a9b6145d9a98fcab3cc0eba25321ec",
+    "url": "https://codeload.github.com/petitstrawberry/jdk25u/tar.gz/4225128a91a9b6145d9a98fcab3cc0eba25321ec",
+    "sha256": "105867bebaf535dde5103dfc59cd54dc2784a9504614048374b27e920766e781",
+    "directory": "jdk25u-4225128a91a9b6145d9a98fcab3cc0eba25321ec",
     "ported": true,
     "repository": "https://github.com/petitstrawberry/jdk25u",
     "branch": "feat/scarlet-nio-filesystem",
