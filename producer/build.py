@@ -552,7 +552,7 @@ def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, 
          "-I", source / "src/java.base/scarlet/native/include", "-c", work / "launcher.c",
          "-o", launcher_obj], work, work / "logs/launcher-build.log", env)
     regular_file(launcher_obj)
-    run([cc, "-O2", "-c", builtins, "-o", builtins_obj], work, work / "logs/builtins-build.log", env)
+    run([cc, "-O2", "-fPIC", "-c", builtins, "-o", builtins_obj], work, work / "logs/builtins-build.log", env)
     regular_file(builtins_obj)
     support, bridge = compile_runtime_support(work, cc, env, sources)
     ffi_archive = regular_file(ffi / "lib/libffi.a")

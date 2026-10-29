@@ -6,6 +6,7 @@ public class Jni {
     static { System.loadLibrary("jni_probe"); }
     static native int registered(int value);
     static native int exercise(byte[] data, ByteBuffer direct);
+    static native int attached();
     static native void fail();
     static native void missing();
     static int callback(int value) { return value * 3; }
@@ -16,6 +17,7 @@ public class Jni {
 
     public static void main(String[] args) throws Exception {
         check(registered(7) == 50);
+        check(attached() == 129);
         byte[] data = {1, 2, 3};
         ByteBuffer direct = ByteBuffer.allocateDirect(8);
         check(exercise(data, direct) == 129);
@@ -41,6 +43,6 @@ public class Jni {
         if (error.get() != null) throw new AssertionError(error.get());
         System.loadLibrary("jni_probe");
         check(registered(0) == 43);
-        System.out.println("OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok threads=4");
+        System.out.println("OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok attach=ok threads=4");
     }
 }

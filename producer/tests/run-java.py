@@ -123,7 +123,7 @@ def main():
             and 'OPENJDK_TIERED PASS dispatch=ok materialize=ok gc=ok osr=ok' in tiered
             and 'OPENJDK_GUEST tiered child exit=0' in tiered)
     if a.jni_libraries:
-        passed = (passed and 'OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok threads=4' in content
+        passed = (passed and 'OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok attach=ok threads=4' in content
                   and 'OPENJDK_GUEST JNI child exit=0' in content)
     receipt = dict(result='PASS' if passed else 'FAIL', scope='Native OpenJDK Java execution',
         command=command, timed_out=timed_out, qemu_exit=status, kernel_sha256=sha(a.kernel),
