@@ -46,6 +46,8 @@ def main():
     p.add_argument('--qemu', default='qemu-system-aarch64')
     p.add_argument('--cpus', type=int, default=4)
     p.add_argument('--timeout', type=int, default=180)
+    p.add_argument('--loader', type=Path, help='Resident Scarlet ELF interpreter')
+    p.add_argument('--jni-libraries', type=Path, help='Directory of JNI test DSOs')
     p.add_argument('--jit', action='store_true', help='Require JIT compilation and exception recovery')
     p.add_argument('--tiered', action='store_true', help='Require C1 to C2 promotion, OSR and deoptimization')
     a = p.parse_args()
@@ -63,6 +65,14 @@ def main():
     file(a.init, 'init', True)
     file(a.java, 'bin/java', True)
     file(a.supervisor, 'bin/java-test', True)
+    if a.loader:
+        file(a.loader, 'bin/scarlet-ld', True)
+    if a.jni_libraries:
+        if not a.loader:
+            p.error('--jni-libraries requires --loader')
+        entries['app/lib'] = (0o40755, b'')
+        for path in sorted(a.jni_libraries.iterdir()):
+            file(path, 'app/lib/' + path.name)
     for base, dest in ((a.java_home, guest_home), (a.classes, 'app')):
         if not base.is_dir(): raise ValueError('Missing directory: '+str(base))
         for path in sorted(base.rglob('*')):
@@ -112,9 +122,13 @@ def main():
         passed = (passed and a.jit and tiered_evidence(tiered)
             and 'OPENJDK_TIERED PASS dispatch=ok materialize=ok gc=ok osr=ok' in tiered
             and 'OPENJDK_GUEST tiered child exit=0' in tiered)
+    if a.jni_libraries:
+        passed = (passed and 'OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok threads=4' in content
+                  and 'OPENJDK_GUEST JNI child exit=0' in content)
     receipt = dict(result='PASS' if passed else 'FAIL', scope='Native OpenJDK Java execution',
         command=command, timed_out=timed_out, qemu_exit=status, kernel_sha256=sha(a.kernel),
         input_sha256=inputs, initramfs_sha256=sha(initrd), log_sha256=sha(log))
+    receipt['jni_required'] = bool(a.jni_libraries)
     receipt['jit_required'] = a.jit
     receipt['tiered_required'] = a.tiered
     receipt['jar_required'] = a.java_home.name == 'openjdk-25'

@@ -141,6 +141,26 @@ fn main() {
             }
         }
     }
+    #[cfg(jni)]
+    {
+        let result = std::process::Command::new("/bin/java")
+            .args([
+                "-XX:ErrorFile=/tmp/openjdk-error.log",
+                "-Xcheck:jni",
+                "-Djava.library.path=/app/lib",
+                "-cp",
+                "/app",
+                "Jni",
+            ])
+            .status();
+        match result {
+            Ok(status) if status.success() => println!("OPENJDK_GUEST JNI child exit=0"),
+            other => {
+                println!("OPENJDK_GUEST FAIL JNI {other:?}");
+                report_crash();
+            }
+        }
+    }
     // This disposable validation VM owns its lifecycle; the Java launcher does not.
     unsafe {
         core::arch::asm!("svc #0", inout("x0") 0usize => _, inout("x1") 0usize => _,
