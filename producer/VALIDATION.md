@@ -1,4 +1,39 @@
-# Validation record — 2026-10-28
+# Validation record
+
+## 2026-10-29 — native JNI loading
+
+Java 25 was rebuilt from fork commit
+`27cf2dbd8fca4c21daf9f64885ee56ff780854f0` with the pinned Nix toolchain.
+The executable is an AArch64 Scarlet PIE using `/bin/scarlet-ld`; its only
+undefined symbols are `dlopen`, `dlsym`, `dlclose` and `dlerror`. It has no
+DT_NEEDED libraries, text relocations, symbol versions or RELR relocations.
+
+The local Java SHA-256 is
+`f8384ea1aaf5ddd30458742130263d292555bdeaa3940801408fdef1394aabd1`.
+The full suite passed under HVF, including `java --version`, the previous
+JAR/NIO, C1/C2, deoptimization and GC checks. Dynamic JNI tests run with
+`-Xcheck:jni`; the log also requires C2 level 4 compilation of `Jni::callback`.
+They exercise JNI_OnLoad and RegisterNatives, dependent shared libraries,
+constructors, malloc/free, Java callbacks, arrays and DirectBuffer access,
+JNI exceptions, missing symbols, missing/invalid libraries, four Java threads,
+and a pthread that attaches to the VM, calls Java and detaches.
+
+The interpreter was built from Scarlet commit
+`602e4359884155006693566f361a2b4b42392f05`, with SHA-256
+`b7a709906cb79d637579f6f5fbcfdd856aed5ed7fa11be1c2a07ee01e5bf29b2`.
+The kernel is the same explicit artifact as the baseline below.
+`validate.py --loader <scarlet-ld>` builds the JNI fixtures and includes them
+in the guest automatically for loader-linked Java receipts.
+
+Two initial builds exposed non-PIC built-in symbol tables and a legacy
+libjava process-handle token. These were fixed; the failed runs are not
+counted as passes. Host regression tests: 43 passed. Local logs and receipts
+are retained in `producer/artifacts/jni-loader/`. These tests do not establish
+DSO TLS, overlapping loader operations, physical unloading, or compatibility
+with libraries built for another operating system.
+
+## 2026-10-28 — static runtime
+
 
 The results below used the earlier `java21`/`java25` installation layout.
 Current bundles provide `/bin/java` and are mutually exclusive; select one

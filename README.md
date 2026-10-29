@@ -41,7 +41,18 @@ reflection, method handles, JAR/ZIP reading, direct buffers, and initial NIO
 file metadata/path operations. Java 21 retains the earlier C1 runtime;
 JAR/NIO compatibility has only been established for the Java 25 recipe.
 
-This is a headless `java.base` port. Dynamic JNI libraries, networking, NIO
+The Java 25 producer links the executable through `/bin/scarlet-ld`, supplied
+by Scarlet's base bundle, and supports native JNI libraries through
+`System.load` and `System.loadLibrary`. Set `-Djava.library.path` for library
+name lookup. Libraries must use Scarlet's native AArch64 ABI; Linux binaries
+are not compatible. Dependencies are resolved by the existing loader.
+Only eager global loading is supported. DSO TLS, symbol versions, IFUNC,
+constructor reentry and overlapping loader operations remain unsupported.
+Closing a library releases its handle; mappings remain until process exit.
+Java 21 retains static built-in libraries only. Existing archive pins retain
+the features of their release until updated by the publishing workflow.
+
+This is a headless `java.base` port. Networking, NIO
 channels/selectors, directory enumeration/mutation, AWT, JVMTI, JFR, virtual
 threads/continuations, process creation and module-mode launch remain
 unavailable or unported. It is not a complete or TCK-certified JDK.

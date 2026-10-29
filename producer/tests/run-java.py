@@ -125,6 +125,8 @@ def main():
     if a.jni_libraries:
         passed = (passed and 'OPENJDK_JNI PASS onload=ok register=ok dependency=ok callback=ok array=ok direct=ok exception=ok errors=ok attach=ok threads=4' in content
                   and 'OPENJDK_GUEST JNI child exit=0' in content)
+        if a.tiered:
+            passed = passed and compiled_method(content, 'Jni', 'callback', level=4)
     receipt = dict(result='PASS' if passed else 'FAIL', scope='Native OpenJDK Java execution',
         command=command, timed_out=timed_out, qemu_exit=status, kernel_sha256=sha(a.kernel),
         input_sha256=inputs, initramfs_sha256=sha(initrd), log_sha256=sha(log))
