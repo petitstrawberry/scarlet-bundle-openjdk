@@ -33,13 +33,19 @@ OWNER = "scarlet-openjdk-core-libs-v1\n"
 
 def libraries(source):
     # Older Scarlet source pins predate the NIO backend.
-    return LIBRARIES + (("nio",) if (source / "src/java.base/scarlet/native/libnio").is_dir() else ())
+    return LIBRARIES + tuple(name for name in ("nio", "net")
+                             if (source / "src/java.base/scarlet/native" / ("lib" + name)).is_dir())
 
 
 def included_source(library, platform, relative):
     # NIO is ported incrementally. Use its common JNI entry point and the
     # native sources implemented by Scarlet, without Unix socket/poller code.
-    return library != "nio" or platform == "scarlet" or relative == Path("nio_util.c")
+    if library == "nio":
+        return platform == "scarlet" or relative == Path("nio_util.c")
+    if library == "net":
+        return platform == "scarlet" or (platform == "share" and relative.name in
+                ("InetAddress.c", "Inet4Address.c", "Inet6Address.c"))
+    return True
 
 
 def digest(path):

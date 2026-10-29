@@ -1,4 +1,8 @@
 fn main() {
+    run(|| {});
+}
+
+pub fn run(before_java: impl FnOnce()) {
     // Native init retains the administrative root-view capability at handle 3
     // for PID 1. Mount only ephemeral test state; exec does not pass that
     // CLOEXEC capability to Java. VfsViewMount is native ABI operation 524.
@@ -10,6 +14,7 @@ fn main() {
             clobber_abi("C"));
     }
     assert_ne!(result, usize::MAX, "mount writable application state");
+    before_java();
     let arguments = std::fs::read_to_string("/app/.java-arguments").expect("application arguments");
     let status = std::process::Command::new("/bin/java")
         .current_dir("/tmp")

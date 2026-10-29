@@ -39,8 +39,12 @@ Java 25 also supports `-jar`, including manifest `Class-Path` dependencies.
 ## Supported scope
 
 Java 25 includes C1 and C2 tiered compilation, Serial GC, platform threads,
-reflection, method handles, JAR/ZIP reading, direct buffers, and initial NIO
-file metadata/path operations. Java 21 retains the earlier C1 runtime;
+reflection, method handles, JAR/ZIP reading, direct buffers, NIO file channels,
+directory enumeration and filesystem mutations. IPv4 `InetAddress` resolution
+uses Scarlet's native libc and resolver service. Reachability probes use the
+TCP echo-port fallback. The native environment has no node-name service, so
+local hostname lookup uses the standard `localhost` fallback. IPv6 transport
+is not advertised. Java 21 retains the earlier C1 runtime;
 JAR/NIO compatibility has only been established for the Java 25 recipe.
 
 The Java 25 producer links the executable through `/bin/scarlet-ld`, supplied
@@ -54,8 +58,8 @@ Closing a library releases its handle; mappings remain until process exit.
 Java 21 retains static built-in libraries only. Existing archive pins retain
 the features of their release until updated by the publishing workflow.
 
-This is a headless port with a limited module set. Networking, NIO
-channels/selectors, directory enumeration/mutation, AWT, JVMTI, JFR, virtual
+This is a headless port with a limited module set. Java socket APIs, NIO
+network channels/selectors, file range locking, AWT, JVMTI, JFR, virtual
 threads/continuations, process creation and module-mode launch remain
 unavailable or unported. It is not a complete or TCK-certified JDK.
 

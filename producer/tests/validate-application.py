@@ -28,6 +28,8 @@ def main():
     for name in ('kernel', 'init', 'loader', 'java', 'java-home', 'app', 'arguments', 'output'):
         p.add_argument('--' + name, type=Path, required=True)
     p.add_argument('--qemu', required=True)
+    p.add_argument('--supervisor', type=Path, default=HERE / 'application-supervisor.rs',
+                   help='Native Rust supervisor source; defaults to the isolated application runner')
     p.add_argument('--timeout', type=int, default=180)
     p.add_argument('--expect', required=True, help='Application-specific success marker')
     a = p.parse_args()
@@ -42,10 +44,10 @@ def main():
     with (out / 'supervisor-build.log').open('w') as log:
         subprocess.run([env.get('SCARLET_RUSTC', 'rustc'), '--edition=2024', '--target=aarch64-unknown-scarlet',
             '-C', 'panic=abort', '-C', 'target-feature=+crt-static', '-C', 'relocation-model=static',
-            '-C', 'link-arg=--no-dynamic-linker', '-O', str(HERE / 'application-supervisor.rs'), '-o', str(out / 'supervisor')],
+            '-C', 'link-arg=--no-dynamic-linker', '-O', str(a.supervisor), '-o', str(out / 'supervisor')],
             env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
     entries = {name: (0o40755, b'') for name in ('bin', 'app', 'dev', 'etc', 'tmp', 'root', 'mnt', 'mnt/newroot')}
-    inputs = {'kernel': sha(a.kernel), 'arguments': args}
+    inputs = {'kernel': sha(a.kernel), 'arguments': args, 'supervisor_source': sha(a.supervisor)}
     def add(path, name, executable=False):
         if path.is_symlink() or not path.is_file(): raise ValueError('Expected regular input: ' + str(path))
         for parent in Path(name).parents:

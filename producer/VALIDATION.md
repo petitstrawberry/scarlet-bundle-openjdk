@@ -1,5 +1,49 @@
 # Validation record
 
+## 2026-10-29 — IPv4 address resolution
+
+Fork commit `5475cd6a2fcc749dc8a3e32ff449aa2f0cf3da15` adds the Scarlet
+`libnet` backend. The producer selects the shared InetAddress class initializers
+and the platform resolver implementation, links the archive, and registers its
+JNI exports in the built-in library table. The local development build reuses
+the verified unchanged C2 VM archive described below; it is not a release build.
+Native Java SHA-256:
+`2c691f17a67dcce2cbfd448c11137ff24d1133c12ce8c39a730b77e76eb2b45d`.
+The module image SHA-256 remains
+`02862d283152451affca0e5ffca9651d437b3a9181ca0f363644b1dfdf230960`.
+
+`InetAddressSmoke` passed under AArch64 HVF with `-Xcheck:jni`, both with hostname
+information enabled in exception messages and with it excluded. It verifies
+native IPv4 capability probing, IPv4 backend selection, IPv6 value initialization,
+local hostname fallback, native numeric resolution, ordered multi-address
+results with duplicates removed, retained hostnames, negative/error mapping,
+reverse-lookup numeric fallback, and four concurrent resolver callers. A real
+Native TCP listener on loopback port 7 verifies the reachability fallback;
+an unsupported explicit TTL reports an IOException. No JNI warnings occurred.
+
+`inet-supervisor.rs` provides a deterministic resolverd-protocol test service,
+so named lookups exercise JNI, native libc, Rust std and Scarlet local-socket
+IPC without depending on external DNS. It is a test fixture, not a replacement
+resolver. Invoke `validate-application.py` with
+`--supervisor producer/tests/inet-supervisor.rs`, a payload containing the compiled
+smoke class, and arguments `-Xcheck:jni`,
+`--add-opens=java.base/java.net=ALL-UNNAMED`, `-cp`, `/app`, `InetAddressSmoke`,
+`native` (or `native-private` for excluded hostname information).
+
+The file/NIO and runtime-resource regressions also passed on this image.
+An unmodified external server JAR passed InetAddress initialization and reached
+logging configuration. Its next fatal failure is the missing
+`java.beans.PropertyChangeEvent` class; optional management/JNDI lookups also
+report unavailable modules. That application run remains a failure.
+
+Receipts and logs are preserved locally in
+`producer/artifacts/app-validation/inet-final/`, `inet-private-final/`,
+`inet-nio-final/`, `inet-resources-final/`, and `inet-server-final/`.
+The first fixture attempt exposed a test-listener lifetime error; it was fixed
+before the passing runs and is not counted as a runtime pass.
+All 43 producer host tests passed. This work does not enable Java socket APIs,
+IPv6 transport or native PTR resolution, which the current libc lacks.
+
 ## 2026-10-29 — native NIO and runtime resources
 
 The Java 25 native library snapshot committed as

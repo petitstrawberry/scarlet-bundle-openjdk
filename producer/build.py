@@ -544,6 +544,8 @@ def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, 
     archives = [jvm, *(regular_file(core / name) for name in CORE_ARCHIVES)]
     if (source / "src/java.base/scarlet/native/libnio").is_dir():
         archives.append(regular_file(core / "libnio.a"))
+    if (source / "src/java.base/scarlet/native/libnet").is_dir():
+        archives.append(regular_file(core / "libnet.a"))
     builtins = work / "builtins.c"
     if exists(builtins):
         regular_file(builtins)
