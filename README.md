@@ -1,7 +1,8 @@
 # scarlet-bundle-openjdk
 
 OpenJDK runtime bundles for native Scarlet AArch64. They use Scarlet's native
-ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base` module. Java 25 also includes
+ABI (ELF OSABI `0x53`) and include HotSpot and the `java.base`, `java.logging`, and
+`java.xml` modules. Java 25 also includes
 `jdk.unsupported` for libraries that use `sun.misc.Unsafe`.
 
 | Bundle | Default VM | Executable | Java home |

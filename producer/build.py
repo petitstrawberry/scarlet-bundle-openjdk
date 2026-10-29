@@ -525,9 +525,15 @@ def stage_java_helpers(work, sources, overlay, driver_data, cc_data, audit_data)
     return helpers
 
 
+def runtime_modules(major):
+    modules = ("java.base", "java.logging", "java.xml")
+    return (*modules, "jdk.unsupported") if major >= 25 else modules
+
+
 def build_java(source, jdk_build, boot_jdk, ffi, jvm, work, cc, cxx, env, jobs, sources, helpers, dynamic=False):
-    modules = ("java.base", "jdk.unsupported") if source_version(source)[0] >= 25 else ("java.base",)
-    run(["make", *(module + "-java" for module in modules), "java.base-gendata", "java.base-copy", f"JOBS={jobs}"],
+    modules = runtime_modules(source_version(source)[0])
+    run(["make", *(module + "-java" for module in modules), "java.base-gendata",
+         "java.base-copy", "java.logging-copy", f"JOBS={jobs}"],
         jdk_build, work / "logs/java-base-build.log", env)
     regular_file(jdk_build / "support/headers/java.base/java_lang_System.h")
     regular_file(jdk_build / "jdk/modules/java.base/module-info.class")

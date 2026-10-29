@@ -3,6 +3,10 @@ import java.nio.file.*;
 import java.security.*;
 import java.time.*;
 import java.util.HexFormat;
+import java.io.StringReader;
+import java.util.logging.Logger;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.xml.sax.InputSource;
 
 public class RuntimeResourcesSmoke {
     static void require(boolean ok, String what) {
@@ -20,6 +24,10 @@ public class RuntimeResourcesSmoke {
             trust.load(input, "changeit".toCharArray());
         }
         require(trust.size() > 0, "default certificate store");
+        var xml = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(new InputSource(new StringReader("<configuration status=\"ok\"/>")));
+        require(xml.getDocumentElement().getAttribute("status").equals("ok"), "XML parser");
+        require(Logger.getLogger("scarlet.runtime").getName().equals("scarlet.runtime"), "logging module");
         System.out.println("RUNTIME_RESOURCES PASS providers=" + Security.getProviders().length + " certificates=" + trust.size());
     }
 }

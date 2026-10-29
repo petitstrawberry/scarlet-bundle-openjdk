@@ -1,5 +1,41 @@
 # Validation record
 
+## 2026-10-29 — native NIO and runtime resources
+
+The Java 25 native library snapshot committed as
+`a7c7484172adb6e2fdfc91f3c911f6eba7d98bcc` passed application tests under
+AArch64 HVF with the kernel and loader recorded below. The development link
+reused the existing C2 VM archive after verifying that `src/hotspot` has the
+same Git tree as `27cf2dbd8fca4c21daf9f64885ee56ff780854f0`. It rebuilt the
+native libraries and built-in JNI table and packaged the updated platform
+classes. This local development image is not a CI release artifact.
+
+Native Java SHA-256:
+`73022095254a8bfd14359fc1296582df3a110c1cd7c1c5816ea1b3f2d1154eeb`.
+Module image SHA-256:
+`02862d283152451affca0e5ffca9651d437b3a9181ca0f363644b1dfdf230960`.
+The image includes `java.base`, `java.logging`, `java.xml` and `jdk.unsupported`,
+with generated configuration, time-zone data, CA certificates and legal notices.
+
+`NioFilesSmoke` passed directory creation/listing, Unicode paths, symlinks,
+rename/delete and error mapping, file-channel positioned/direct I/O,
+truncation, and mixed heap/direct scatter/gather transfers larger than 1 MiB.
+It checks transferred bytes, partial-transfer buffer positions, file cursors
+and EOF. `RuntimeResourcesSmoke` passed SHA-256, Asia/Tokyo rules, loading
+110 CA certificates, XML parsing and logger initialization.
+
+The application runner also unpacked an unmodified external server JAR and
+reached its main class and XML logging configuration. That run failed at the
+unimplemented `java.net.InetAddress.init` entry point; it is not counted as a
+successful application launch. The runner requires an application marker as
+well as exit status because an exception in an application-created thread
+can leave the JVM's exit status at zero.
+
+Logs and SHA-256 input manifests are retained locally in
+`producer/artifacts/app-validation/local-nio-final/`, `local-resources-3/`,
+and `local-server-3/`. All 43 producer host tests also passed. The tests in
+this record used HVF only; CI independently rebuilds the pinned full runtime.
+
 ## 2026-10-29 — native JNI loading
 
 Java 25 was rebuilt from fork commit

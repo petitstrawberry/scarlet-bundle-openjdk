@@ -64,7 +64,7 @@ def package_image(source, jdk_build, boot_jdk, java, output, env):
         if (canonical_output == path or canonical_output in path.parents or path in canonical_output.parents):
             raise bootstrap.BuildError(f"Image output overlaps {label} input: {output}")
     classes = jdk_build / "jdk/modules/java.base"
-    modules = ("java.base", "jdk.unsupported") if major >= 25 else ("java.base",)
+    modules = bootstrap.runtime_modules(major)
     module_classes = {name: jdk_build / "jdk/modules" / name for name in modules}
     for directory in module_classes.values():
         bootstrap.regular_file(directory / "module-info.class")

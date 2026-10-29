@@ -36,6 +36,49 @@ public class NioFilesSmoke {
             require(buffer.get(0) == 9 && buffer.get(2) == 7, "direct bytes");
         }
         Files.delete(channelFile);
+        Path vectorFile = nested.resolve("vectors");
+        byte[] expected = new byte[1_200_004];
+        for (int i = 0; i < expected.length; ++i) expected[i] = (byte)(i * 31);
+        var first = java.nio.ByteBuffer.wrap(expected, 0, 700_001);
+        var second = java.nio.ByteBuffer.allocateDirect(expected.length - first.remaining() + 10);
+        second.position(5);
+        second.put(expected, 700_001, expected.length - 700_001).flip().position(5);
+        try (var channel = java.nio.channels.FileChannel.open(vectorFile,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            var sources = new java.nio.ByteBuffer[] {java.nio.ByteBuffer.allocate(0), first, second};
+            long written = 0;
+            while (first.hasRemaining() || second.hasRemaining()) {
+                long before = first.position() + second.position();
+                long count = channel.write(sources);
+                require(count > 0 && count == first.position() + second.position() - before,
+                        "gather write progress and buffer positions");
+                written += count;
+                require(channel.position() == written, "gather write file position");
+            }
+            require(written == expected.length && channel.size() == expected.length, "gather write size");
+            channel.position(0);
+            byte[] actual = new byte[expected.length + 6];
+            var head = java.nio.ByteBuffer.wrap(actual, 3, 303_001);
+            var tail = java.nio.ByteBuffer.allocateDirect(expected.length - 303_001 + 8);
+            tail.position(4).limit(tail.capacity() - 4);
+            var targets = new java.nio.ByteBuffer[] {head, java.nio.ByteBuffer.allocate(0), tail};
+            long read = 0;
+            while (head.hasRemaining() || tail.hasRemaining()) {
+                long before = head.position() + tail.position();
+                long count = channel.read(targets);
+                require(count > 0 && count == head.position() + tail.position() - before,
+                        "scatter read progress and buffer positions");
+                read += count;
+                require(channel.position() == read, "scatter read file position");
+            }
+            tail.flip().position(4);
+            tail.get(actual, 3 + 303_001, expected.length - 303_001);
+            require(Arrays.equals(expected, Arrays.copyOfRange(actual, 3, actual.length - 3)), "vector bytes");
+            require(actual[0] == 0 && actual[actual.length - 1] == 0, "scatter buffer boundaries");
+            require(channel.read(new java.nio.ByteBuffer[] {java.nio.ByteBuffer.allocate(1)}) == -1,
+                    "scatter EOF");
+        }
+        Files.delete(vectorFile);
         Set<String> names = new HashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(nested)) {
             for (Path entry : entries) names.add(entry.getFileName().toString());
@@ -52,7 +95,7 @@ public class NioFilesSmoke {
         try {
             Files.delete(renamed);
             throw new AssertionError("missing file was accepted");
-        } catch (NoSuchFileException expected) {}
+        } catch (NoSuchFileException missing) {}
         Files.delete(nested);
         Files.delete(nested.getParent());
         Files.delete(root);
