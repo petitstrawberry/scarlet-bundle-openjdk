@@ -1,8 +1,8 @@
 # Generated from the verified CI release archive.
 [[layers]]
 kind = "archive"
-url = "https://github.com/petitstrawberry/scarlet-bundle-openjdk/releases/download/v0.1.7/openjdk-21-aarch64-v0.1.7.tar.gz"
-sha256 = "sha256:8f444251a8c504272404789656a60bd30babf7b86eb9502a9b48c3a4c7a13daf"
+url = "https://github.com/petitstrawberry/scarlet-bundle-openjdk/releases/download/v0.1.14/openjdk-21-aarch64-v0.1.14.tar.gz"
+sha256 = "sha256:3bb1070b1392ef47235ea09e0689f75bfc89a6855a2fa806dda74ee490b79481"
 format = "tar-gz"
 strip_components = 1
 to = "/"
