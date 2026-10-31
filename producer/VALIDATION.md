@@ -45,6 +45,20 @@ was not met by this intentionally unchanged three-minute observation.
 The application logs and input hashes are in
 `producer/artifacts/client-validation/26.3/launch-20261030/hvf-main-requirements-112-g1-jvm-pauses/`.
 
+A repeated launch exposed a native futex registration race: a broadcast could
+wake existing waiters after a new thread checked its word but before that thread
+joined the wait queue. Scarlet now rechecks the word after registration for both
+timed and untimed waits. The existing G1/C2/JNI guest suite passed on the fixed
+kernel. The first graphical retry accidentally used a kernel without the pending
+GPU capability changes and failed device selection; it is retained as a failure.
+The subsequent retry used the integrated GPU-capability and graphics-optimization
+sources plus the futex fix, entered the world and exercised concurrent/mixed G1
+collections. Manual feedback reported improved notification stutter. This is
+subjective confirmation, not a controlled FPS comparison or a claim that all
+stalls are resolved. Evidence: `g1-native-qa-futex/` and application attempts
+`113-g1-jvm-pauses-repeat`, `114-g1-futex-wake`, and `115-g1-futex-integrated`
+under the validation directory above (each prefixed `hvf-main-requirements-`).
+
 ## 2026-10-29 — application startup and shutdown
 
 Fork commit `4225128a91a9b6145d9a98fcab3cc0eba25321ec` adds the Native
