@@ -39,7 +39,7 @@ Java 25 also supports `-jar`, including manifest `Class-Path` dependencies.
 
 ## Supported scope
 
-Java 25 includes C1 and C2 tiered compilation, Serial GC, platform threads,
+Java 25 includes C1 and C2 tiered compilation, G1 and Serial GC, platform threads,
 reflection, method handles, JAR/ZIP reading, direct buffers, NIO file channels,
 directory enumeration and filesystem mutations. It also supports JavaBeans,
 ZIP filesystems, standard VM management counters, nonblocking whole-file locks,
@@ -51,6 +51,11 @@ TCP echo-port fallback. The native environment has no node-name service, so
 local hostname lookup uses the standard `localhost` fallback. IPv6 transport
 is not advertised. Java 21 retains the earlier C1 runtime;
 JAR/NIO compatibility has only been established for the Java 25 recipe.
+
+Java 25's C1 and tiered profiles include G1. HotSpot selects the collector using
+its standard CPU and memory ergonomics; the launcher does not force a collector.
+Use `-XX:+UseG1GC` or `-XX:+UseSerialGC` to select one explicitly. The Java 21
+and Zero profiles include Serial GC only.
 
 The Java 25 producer links the executable through `/bin/scarlet-ld`, supplied
 by Scarlet's base bundle, and supports native JNI libraries through

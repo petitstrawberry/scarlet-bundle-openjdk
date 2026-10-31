@@ -437,6 +437,8 @@ def configure_hotspot(source, build, boot_jdk, ffi, cc, cxx, env, logfile, varia
     features = compilers[variant] + JVM_FEATURES
     if major >= 25:
         features = features.replace("-management", "management")
+        if variant != "zero":
+            features = features.replace("-g1gc", "g1gc")
     command = ["bash", source / "configure", f"--with-conf-name=scarlet-{variant}",
                "--openjdk-target=aarch64-unknown-scarlet", "--with-toolchain-type=clang",
                f"--with-boot-jdk={boot_jdk}", f"--with-build-jdk={boot_jdk}",

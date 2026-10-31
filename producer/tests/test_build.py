@@ -312,6 +312,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("--with-jvm-variants=server", command)
         features = next(arg for arg in command if arg.startswith("--with-jvm-features="))
         self.assertIn("management", features.split("=", 1)[1].split(","))
+        self.assertIn("g1gc", features.split("=", 1)[1].split(","))
 
     def test_tiered_profile_keeps_both_compilers_without_jvmci(self):
         env = {"SCARLET_NATIVE_" + name: "/sdk/" + name.lower() for name in ("AR", "NM", "RANLIB")}
@@ -321,7 +322,7 @@ class BootstrapTests(unittest.TestCase):
                                     env, self.root / "log", "tiered", 25)
         command = [str(arg) for arg in run.call_args.args[0]]
         self.assertIn("--with-jvm-features=compiler1,compiler2,-jvmci," +
-                      build.JVM_FEATURES.replace("-management", "management"), command)
+                      build.JVM_FEATURES.replace("-management", "management").replace("-g1gc", "g1gc"), command)
         self.assertNotIn("--enable-static-build", command)
 
     def test_version_defaults_and_explicit_compiler_override(self):

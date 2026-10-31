@@ -45,6 +45,7 @@ def main():
     p.add_argument('--accel', choices=('tcg', 'hvf'), default='tcg')
     p.add_argument('--qemu', default='qemu-system-aarch64')
     p.add_argument('--cpus', type=int, default=4)
+    p.add_argument('--memory', default='1G')
     p.add_argument('--timeout', type=int, default=180)
     p.add_argument('--loader', type=Path, help='Resident Scarlet ELF interpreter')
     p.add_argument('--jni-libraries', type=Path, help='Directory of JNI test DSOs')
@@ -83,7 +84,7 @@ def main():
     initrd = a.output/'initramfs.cpio'
     runtime_test.archive([(name,*value) for name,value in sorted(entries.items())], initrd)
     command = [a.qemu,'-machine','virt,gic-version=3','-accel',a.accel,
-        '-cpu','host' if a.accel=='hvf' else 'max','-m','1G','-smp',str(a.cpus),
+        '-cpu','host' if a.accel=='hvf' else 'max','-m',a.memory,'-smp',str(a.cpus),
         '-display','none','-monitor','none','-serial','stdio','-no-reboot',
         '-kernel',str(a.kernel),'-initrd',str(initrd),
         '-append','console=ttyAMA0 init.exec=/bin/java-test']

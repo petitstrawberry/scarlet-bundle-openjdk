@@ -50,6 +50,7 @@ def main():
     p.add_argument('--accel', choices=('tcg','hvf'), default='tcg')
     p.add_argument('--qemu', default='qemu-system-aarch64', help='QEMU executable or PATH name')
     p.add_argument('--timeout', type=int, default=180)
+    p.add_argument('--memory', default='1G', help='Guest RAM (use at least 2G to exercise default G1 selection)')
     a = p.parse_args()
     receipt = json.loads(a.build_receipt.read_text())
     a.jni = receipt.get('elf', {}).get('interpreter') == '/bin/scarlet-ld'
@@ -98,7 +99,7 @@ def build_and_run(a, o, java, java_home):
              '--output', o/'jni-libraries'], o/'jni-build.log', env)
     run([sys.executable,HERE/'run-java.py','--kernel',a.kernel.resolve(),'--init',a.init.resolve(),'--java',java,
          '--java-home',java_home,'--supervisor',o/'supervisor','--classes',o/'classes',
-         '--output',o/'java-qa','--accel',a.accel,'--qemu',a.qemu,'--timeout',a.timeout]
+         '--output',o/'java-qa','--accel',a.accel,'--qemu',a.qemu,'--timeout',a.timeout,'--memory',a.memory]
         + (['--jit'] if a.jit else []) + (['--tiered'] if a.tiered else [])
         + (['--loader', a.loader.resolve(), '--jni-libraries', o/'jni-libraries'] if a.jni else []),o/'run.log',env)
     print('Native OpenJDK guest PASS: '+str(o/'java-qa/validation.json'))
