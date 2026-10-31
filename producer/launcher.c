@@ -20,7 +20,6 @@ static void *run_vm(void *data) {
     options[n++].optionString = "-Xms16m";
     options[n++].optionString = "-Xmx64m";
     options[n++].optionString = "-Xrs";
-    options[n++].optionString = "-XX:+UseSerialGC";
     options[n++].optionString = "-XX:-UsePerfData";
     options[n++].optionString = "-Djava.class.path=.";
     while (i < args->argc && args->argv[i][0] == '-') {
@@ -124,7 +123,7 @@ int main(int argc, char **argv) {
         puts("Usage: java [VM options] [-cp path] Main [args...]\n"
              "       java [VM options] -jar app.jar [args...]\n"
              "       java -version | --version\n"
-             "Scarlet native OpenJDK: HotSpot, Serial GC, static JNI libraries.");
+             "Scarlet native OpenJDK: HotSpot, static JNI libraries.");
         return argc == 1 ? 1 : 0;
     }
     scarlet_jvm_initialize_runtime();

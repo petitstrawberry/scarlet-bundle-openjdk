@@ -1,5 +1,50 @@
 # Validation record
 
+## 2026-10-31 — Java 25 G1 collector
+
+The Java 25 C1 and tiered profiles now include G1 alongside Serial GC.
+The launcher leaves collector selection to HotSpot ergonomics and accepts an
+explicit collector flag without a conflicting implicit Serial flag. Java 21
+and Zero retain their existing Serial-only build profiles.
+
+A fresh producer build used fork commit
+`4225128a91a9b6145d9a98fcab3cc0eba25321ec`, whose tree matches the current
+`scarlet-25` head `0b21d8d828cf9a4289c7c6bafa78cac6165606f8`.
+Native Java SHA-256:
+`6cda456566d988ea57df09f2f844c9d8b277cdf2c41c31db9f48b52d09d0b5cc`.
+The ELF audit passed. All 43 producer host checks passed in the pinned Nix
+shell. The earlier system-Python invocation could not import `tomllib`;
+that environment failure is retained in its separate log.
+
+The existing native guest suite passed under AArch64 HVF with four CPUs and
+4 GiB RAM. The log confirms G1 selection, 128 MiB of allocation, four-thread
+compiled-root survival across eight full collections, implicit exception
+recovery, C1/C2 promotion, OSR, deoptimization, JAR loading and dynamic JNI
+with `-Xcheck:jni`. The guest-memory option allows this suite to exercise
+HotSpot's server-class collector ergonomics; its default remains 1 GiB.
+The evidence is in `producer/artifacts/g1-native-qa/`.
+
+An external graphical application completed a 180.210-second world observation
+with the new runtime, four CPUs, 8 GiB guest RAM and an unchanged
+`-Xms256m -Xmx1536m` heap. The existing graphics runtime and the 100-to-160-second
+frame capture window were unchanged. Complete standard safepoint records show:
+
+| Collector | Records | Median | P95 | Maximum | Stops over 100 ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Serial, preceding run | 74 | 278.818 ms | 564.364 ms | 829.946 ms | 55 |
+| G1 | 75 | 19.521 ms | 65.311 ms | 454.893 ms | 1 |
+
+The G1 run exercised concurrent marking and mixed collections and exited
+normally. Its slowest recorded safepoint was a remark pause. A 491.706 ms
+frame still remained, including 437.719 ms outside the classified graphics
+calls. This does not establish that notification stalls are fixed. User
+movement differed between runs, so these are observed pause distributions,
+not a controlled FPS comparison. UART-interleaved partial records may be
+omitted. The legacy application verifier's five-minute stability criterion
+was not met by this intentionally unchanged three-minute observation.
+The application logs and input hashes are in
+`producer/artifacts/client-validation/26.3/launch-20261030/hvf-main-requirements-112-g1-jvm-pauses/`.
+
 ## 2026-10-29 — application startup and shutdown
 
 Fork commit `4225128a91a9b6145d9a98fcab3cc0eba25321ec` adds the Native
